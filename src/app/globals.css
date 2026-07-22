@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900;
+  font-family: -apple-system, BlinkMacSystemFont, 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+}
+
+/* 표가 모바일 화면 밖으로 넘치지 않도록 항상 가로 스크롤 컨테이너로 감싼다 */
+.table-scroll {
+  @apply w-full overflow-x-auto;
+}
