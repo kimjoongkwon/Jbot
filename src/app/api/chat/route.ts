@@ -101,7 +101,9 @@ export async function POST(request: NextRequest) {
           },
         })
 
-    if (!session) {
+    // 다른 사용자의 chatSessionId를 추측해 전달해도 그 세션에 메시지를 이어
+    // 붙일 수 없도록, 본인 소유 세션인지 확인한다(요구사항 §4).
+    if (!session || session.userId !== user.id) {
       return NextResponse.json({ error: '대화 세션을 찾을 수 없습니다.' }, { status: 404 })
     }
 
