@@ -26,6 +26,22 @@ const envSchema = z.object({
     .optional()
     .default('false')
     .transform((value) => value.trim().toLowerCase() === 'true'),
+  // 업로드 원본 파일 저장소 (요구사항 §6). 'local'은 단일 서버 로컬 디스크
+  // 전용 개발용 구현이며, 서버리스·다중 인스턴스 운영 환경에서는 's3'로
+  // 설정해 S3 호환 오브젝트 스토리지(AWS S3, R2, MinIO 등)를 사용해야 한다.
+  STORAGE_PROVIDER: z.enum(['local', 's3']).optional().default('local'),
+  STORAGE_LOCAL_ROOT: z.string().optional().default('storage/uploads'),
+  STORAGE_S3_BUCKET: z.string().optional().default(''),
+  STORAGE_S3_REGION: z.string().optional().default('us-east-1'),
+  // AWS S3라면 비워둔다. R2/MinIO 등 S3 호환 스토리지일 때만 지정한다.
+  STORAGE_S3_ENDPOINT: z.string().optional().default(''),
+  STORAGE_S3_FORCE_PATH_STYLE: z
+    .string()
+    .optional()
+    .default('false')
+    .transform((value) => value.trim().toLowerCase() === 'true'),
+  STORAGE_S3_ACCESS_KEY_ID: z.string().optional().default(''),
+  STORAGE_S3_SECRET_ACCESS_KEY: z.string().optional().default(''),
 })
 
 export type Env = z.infer<typeof envSchema>
@@ -44,8 +60,16 @@ export function getEnv(): Env {
     throw new Error(`환경변수 설정이 올바르지 않습니다: ${parsed.error.message}`)
   }
   assertDevAuthBypassSafety(parsed.data)
+  assertStorageConfigSafety(parsed.data)
   cachedEnv = parsed.data
   return cachedEnv
+}
+
+/** STORAGE_PROVIDER=s3인데 버킷이 비어 있으면 파일 저장이 항상 실패하므로 시작 시점에 바로 알린다. */
+function assertStorageConfigSafety(env: Env): void {
+  if (env.STORAGE_PROVIDER === 's3' && env.STORAGE_S3_BUCKET.trim().length === 0) {
+    throw new Error('STORAGE_PROVIDER=s3로 설정했지만 STORAGE_S3_BUCKET이 비어 있습니다.')
+  }
 }
 
 /**

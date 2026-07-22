@@ -20,6 +20,14 @@ const BASE_ENV: Env = {
   BOOTSTRAP_ADMIN_PASSWORD: '',
   BOOTSTRAP_ADMIN_NAME: '',
   DEV_AUTH_BYPASS: false,
+  STORAGE_PROVIDER: 'local',
+  STORAGE_LOCAL_ROOT: 'storage/uploads',
+  STORAGE_S3_BUCKET: '',
+  STORAGE_S3_REGION: 'us-east-1',
+  STORAGE_S3_ENDPOINT: '',
+  STORAGE_S3_FORCE_PATH_STYLE: false,
+  STORAGE_S3_ACCESS_KEY_ID: '',
+  STORAGE_S3_SECRET_ACCESS_KEY: '',
 }
 
 function makeEnv(overrides: Partial<Env>): Env {
