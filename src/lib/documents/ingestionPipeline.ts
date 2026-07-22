@@ -6,13 +6,26 @@ import { parseLegalStructure } from '../legal-parsing/parseLegalStructure'
 import { buildSearchText, tokenize } from '../search/tokenize'
 import { normalizeContent } from './normalizeContent'
 
+export interface RunIngestionPipelineOptions {
+  /**
+   * false면 이 버전의 처리 결과가 LegalDocument.status에 반영되지 않는다.
+   * 현행(isCurrent)이 아닌 과거 버전을 새로 추가할 때 사용 — 그 버전의 처리
+   * 성패가 이미 정상 동작 중인 현행 문서의 활성 상태를 바꾸지 않도록 한다.
+   */
+  affectDocumentStatus?: boolean
+}
+
 /**
  * 추출된 원문 텍스트(DocumentVersion.rawText)를 조문 구조로 파싱하고
  * chunk로 저장한 뒤, 임베딩 공급자가 설정되어 있으면 임베딩까지 채운다.
  * 재처리 시 새 IngestionJob을 생성하고, 기존 LegalChunk는 지우고 다시
  * 생성한다(DocumentVersion 자체, 원본 파일, rawText는 보존).
  */
-export async function runIngestionPipeline(documentVersionId: string): Promise<void> {
+export async function runIngestionPipeline(
+  documentVersionId: string,
+  options: RunIngestionPipelineOptions = {},
+): Promise<void> {
+  const affectDocumentStatus = options.affectDocumentStatus ?? true
   const version = await prisma.documentVersion.findUniqueOrThrow({
     where: { id: documentVersionId },
     include: { legalDocument: true },
@@ -88,7 +101,9 @@ export async function runIngestionPipeline(documentVersionId: string): Promise<v
       data: { status: 'COMPLETED', completedAt: new Date() },
     })
     await prisma.documentVersion.update({ where: { id: documentVersionId }, data: { parsingStatus: 'SUCCESS' } })
-    await prisma.legalDocument.update({ where: { id: version.legalDocumentId }, data: { status: 'ACTIVE' } })
+    if (affectDocumentStatus) {
+      await prisma.legalDocument.update({ where: { id: version.legalDocumentId }, data: { status: 'ACTIVE' } })
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : '수집 처리 중 알 수 없는 오류가 발생했습니다.'
     await prisma.ingestionJob.update({
@@ -96,7 +111,9 @@ export async function runIngestionPipeline(documentVersionId: string): Promise<v
       data: { status: 'FAILED', errorMessage: message, completedAt: new Date() },
     })
     await prisma.documentVersion.update({ where: { id: documentVersionId }, data: { parsingStatus: 'FAILED' } })
-    await prisma.legalDocument.update({ where: { id: version.legalDocumentId }, data: { status: 'ERROR' } })
+    if (affectDocumentStatus) {
+      await prisma.legalDocument.update({ where: { id: version.legalDocumentId }, data: { status: 'ERROR' } })
+    }
     throw error
   }
 }

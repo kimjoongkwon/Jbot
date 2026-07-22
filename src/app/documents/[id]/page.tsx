@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth/session'
+import { canViewInternalMemo } from '@/lib/auth/permissions'
 import { prisma } from '@/lib/db'
 import { documentTypeLabel } from '@/lib/labels'
 
@@ -14,6 +15,11 @@ export default async function PublicDocumentDetailPage({ params }: { params: Pro
   const { id } = await params
   const document = await prisma.legalDocument.findFirst({ where: { id, status: 'ACTIVE' } })
   if (!document) notFound()
+
+  // 내부 검토자료(INTERNAL_MEMO)는 일반 사용자에게 노출하지 않는다 (요구사항 §14).
+  if (document.documentType === 'INTERNAL_MEMO' && !canViewInternalMemo(user.role)) {
+    notFound()
+  }
 
   const currentVersion = await prisma.documentVersion.findFirst({
     where: { legalDocumentId: id, isCurrent: true },

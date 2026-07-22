@@ -1,6 +1,7 @@
 import type { BusinessType } from '@prisma/client'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
+import { canViewInternalMemo } from '@/lib/auth/permissions'
 import { prisma } from '@/lib/db'
 import { isClaudeConfigured } from '@/lib/env'
 import { hybridSearch } from '@/lib/search/hybridSearch'
@@ -106,11 +107,15 @@ export async function POST(request: NextRequest) {
       data: { chatSessionId: session.id, role: 'USER', content: question },
     })
 
+    // 내부 검토자료(INTERNAL_MEMO)는 일반 사용자 검색에서 제외한다 (요구사항 §14).
+    const includeInternalMemo = canViewInternalMemo(user.role)
+
     const searchResults = await hybridSearch({
       question,
       region: body.region ?? null,
       businessType: body.businessType ?? null,
       referenceDate,
+      includeInternalMemo,
     })
 
     const { sourceChunks } = await hydrateCitationChunks(searchResults.map((r) => r.chunkId))

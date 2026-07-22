@@ -118,4 +118,20 @@ describe('hybridSearch 통합 테스트 (실제 PostgreSQL 연결)', () => {
     const results = await hybridSearch({ question: '비활성문서고유문구', region: null })
     expect(results.some((r) => r.chunkId === chunk.id)).toBe(false)
   })
+
+  it('includeInternalMemo가 false면 내부 검토자료는 검색 결과에서 제외된다 (일반 사용자 보호)', async () => {
+    const doc = await createTestDocument({
+      title: '[TEST] 내부검토자료',
+      documentType: 'INTERNAL_MEMO',
+    })
+    createdDocIds.push(doc.id)
+    const version = await createTestVersion(doc.id)
+    const chunk = await createTestChunk(version.id, { content: '내부검토고유문구 대외비 내용입니다.' })
+
+    const asUser = await hybridSearch({ question: '내부검토고유문구', region: null, includeInternalMemo: false })
+    expect(asUser.some((r) => r.chunkId === chunk.id)).toBe(false)
+
+    const asAdmin = await hybridSearch({ question: '내부검토고유문구', region: null, includeInternalMemo: true })
+    expect(asAdmin.some((r) => r.chunkId === chunk.id)).toBe(true)
+  })
 })

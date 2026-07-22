@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getCurrentUser } from '@/lib/auth/session'
 import { prisma } from '@/lib/db'
 import { DOCUMENT_STATUS_OPTIONS, DOCUMENT_TYPE_OPTIONS, documentStatusLabel, documentTypeLabel } from '@/lib/labels'
 import { DocumentActions } from '@/components/admin/DocumentActions'
@@ -35,13 +36,18 @@ export default async function AdminDocumentsPage({
     take: 100,
   })
 
+  const user = await getCurrentUser()
+  const canManage = user?.role === 'ADMIN'
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold text-navy-800">문서 관리</h1>
-        <Link href="/admin/documents/new" className="rounded-md bg-navy-700 px-4 py-2 text-sm text-white">
-          문서 등록
-        </Link>
+        {canManage && (
+          <Link href="/admin/documents/new" className="rounded-md bg-navy-700 px-4 py-2 text-sm text-white">
+            문서 등록
+          </Link>
+        )}
       </div>
 
       <form method="GET" className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-5">
@@ -109,7 +115,11 @@ export default async function AdminDocumentsPage({
                       : '정보 없음'}
                   </td>
                   <td className="px-3 py-2">
-                    <DocumentActions documentId={doc.id} status={doc.status} />
+                    {canManage ? (
+                      <DocumentActions documentId={doc.id} status={doc.status} />
+                    ) : (
+                      <span className="text-xs text-slate-400">읽기 전용</span>
+                    )}
                   </td>
                 </tr>
               )

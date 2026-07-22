@@ -141,28 +141,35 @@ export async function registerDocumentVersion(
   await prisma.legalDocument.findUniqueOrThrow({ where: { id: legalDocumentId } })
   const { contentHash, storagePath, extraction } = await ingestUploadedFile(file)
 
-  if (version.isCurrent) {
-    await prisma.documentVersion.updateMany({
-      where: { legalDocumentId, isCurrent: true },
-      data: { isCurrent: false },
-    })
-  }
+  // 새 버전의 텍스트 추출이 실패하면(스캔 문서 등) 이 버전은 현행으로 승격하지 않는다.
+  // 그렇지 않으면 정상 동작하던 현행 버전이 깨진 버전으로 교체되어 문서 전체가
+  // 검색 불가 상태(ERROR)로 빠지는 사고가 발생한다(요구사항 §12 "기존 버전 보존").
+  const shouldBecomeCurrent = version.isCurrent && extraction.status === 'SUCCESS'
 
-  const documentVersion = await prisma.documentVersion.create({
-    data: {
-      legalDocumentId,
-      versionLabel: version.versionLabel,
-      promulgationDate: version.promulgationDate ?? null,
-      effectiveFrom: version.effectiveFrom ?? null,
-      effectiveTo: version.effectiveTo ?? null,
-      isCurrent: version.isCurrent,
-      originalFilename: file.filename,
-      mimeType: file.mimeType,
-      storagePath,
-      contentHash,
-      rawText: extraction.status === 'SUCCESS' ? extraction.text : null,
-      parsingStatus: parsingStatusFromExtraction(extraction.status),
-    },
+  const documentVersion = await prisma.$transaction(async (tx) => {
+    if (shouldBecomeCurrent) {
+      await tx.documentVersion.updateMany({
+        where: { legalDocumentId, isCurrent: true },
+        data: { isCurrent: false },
+      })
+    }
+
+    return tx.documentVersion.create({
+      data: {
+        legalDocumentId,
+        versionLabel: version.versionLabel,
+        promulgationDate: version.promulgationDate ?? null,
+        effectiveFrom: version.effectiveFrom ?? null,
+        effectiveTo: version.effectiveTo ?? null,
+        isCurrent: shouldBecomeCurrent,
+        originalFilename: file.filename,
+        mimeType: file.mimeType,
+        storagePath,
+        contentHash,
+        rawText: extraction.status === 'SUCCESS' ? extraction.text : null,
+        parsingStatus: parsingStatusFromExtraction(extraction.status),
+      },
+    })
   })
 
   await recordAuditLog({
@@ -174,17 +181,22 @@ export async function registerDocumentVersion(
     metadata: { originalFilename: file.filename, extractionStatus: extraction.status },
   })
 
-  await prisma.legalDocument.update({ where: { id: legalDocumentId }, data: { status: 'PROCESSING' } })
-
   if (extraction.status === 'SUCCESS') {
-    try {
-      await runIngestionPipeline(documentVersion.id)
-    } catch {
-      // 상태는 runIngestionPipeline 내부에서 이미 기록됨
+    // 새 버전이 현행으로 승격될 때만 문서 상태를 처리 중으로 표시한다. 현행이 아닌
+    // 과거 버전을 추가하는 경우(기준일 검색을 위해 청크는 생성하되) 기존 활성
+    // 문서의 상태에는 영향을 주지 않는다(affectDocumentStatus: false).
+    if (shouldBecomeCurrent) {
+      await prisma.legalDocument.update({ where: { id: legalDocumentId }, data: { status: 'PROCESSING' } })
     }
-  } else {
-    await prisma.legalDocument.update({ where: { id: legalDocumentId }, data: { status: 'ERROR' } })
+    try {
+      await runIngestionPipeline(documentVersion.id, { affectDocumentStatus: shouldBecomeCurrent })
+    } catch {
+      // 상태는 runIngestionPipeline 내부에서 이미 기록됨(affectDocumentStatus인 경우만)
+    }
   }
+  // 추출 실패 시에는 이 실패한 버전만 기록하고, 기존에 활성 상태였던 문서의
+  // status(ACTIVE 등)는 건드리지 않는다 — 실패한 업로드 한 번으로 기존에
+  // 정상 동작하던 문서가 검색 불가 상태(ERROR)가 되지 않도록 한다.
 
   return { documentVersion, extraction }
 }

@@ -100,4 +100,40 @@ test.describe('정비사업 법령 AI 챗봇 E2E', () => {
     await page.goto('/admin/reviews')
     await expect(page.getByText('시공사 선정 총회의 의결 요건은 무엇인가요?').first()).toBeVisible({ timeout: 10_000 })
   })
+
+  test('내부 검토자료(INTERNAL_MEMO)는 일반 사용자의 챗봇 검색과 문서 상세 보기에서 노출되지 않는다', async ({ page }) => {
+    const memoTitle = '[TEST] E2E 내부검토자료'
+    const memoUniquePhrase = `내부전용고유표현${Date.now()}`
+
+    await loginAs(page, 'ADMIN')
+    await page.goto('/admin/documents/new')
+    await page.fill('input[name=title]', memoTitle)
+    await page.selectOption('select[name=documentType]', 'INTERNAL_MEMO')
+    await page.selectOption('select[name=jurisdictionType]', 'NATIONAL')
+    await page.fill('input[name=jurisdictionName]', '전국')
+    await page.fill('input[name=versionLabel]', '최초 등록')
+
+    const buffer = Buffer.from(`제1조(목적) ${memoUniquePhrase}에 대한 내부 검토 의견이다.`, 'utf-8')
+    await page.setInputFiles('input[name=file]', { name: 'memo.txt', mimeType: 'text/plain', buffer })
+    await Promise.all([page.waitForURL(/\/admin\/documents\/.+/), page.click('button[type=submit]:has-text("등록")')])
+    await expect(page.getByText('회사 내부 검토자료 · 전국 · 활성')).toBeVisible({ timeout: 10_000 })
+
+    const memoId = page.url().split('/admin/documents/')[1]
+    expect(memoId).toBeTruthy()
+
+    // ADMIN은 관리자 상세 화면에서 내부검토자료를 문제없이 볼 수 있다
+    await expect(page.getByRole('heading', { name: memoTitle })).toBeVisible()
+
+    // USER는 챗봇에서 질문해도 내부검토자료가 검색되지 않는다
+    await loginAs(page, 'USER')
+    await page.goto('/chat')
+    await page.fill('textarea', `${memoUniquePhrase}에 대해 알려주세요`)
+    await page.click('button:has-text("전송")')
+    await expect(page.getByText('AI 답변 기능이 설정되지 않았습니다')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText(memoTitle)).not.toBeVisible()
+
+    // USER는 문서 상세 링크로 직접 접근해도 404 처리된다
+    const directResponse = await page.goto(`/documents/${memoId}`)
+    expect(directResponse?.status()).toBe(404)
+  })
 })

@@ -86,7 +86,12 @@ export async function generateLegalAnswer(
   }
 
   const sender =
-    deps.sender ?? new AnthropicMessageSender(new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }))
+    deps.sender ??
+    new AnthropicMessageSender(
+      // 타임아웃을 명시적으로 지정해, 네트워크 문제 등으로 응답이 지연될 때
+      // 요청이 무기한 대기하지 않고 안전하게 실패(재시도 또는 오류 반환)하도록 한다.
+      new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 60_000, maxRetries: 2 }),
+    )
 
   const { contextText, citationIds } = buildAnswerContext(chunks)
   const userMessage = buildUserMessage(contextText, question, referenceDate)

@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { getCurrentUser } from '@/lib/auth/session'
 import { prisma } from '@/lib/db'
 import { businessTypeLabel, documentStatusLabel, documentTypeLabel } from '@/lib/labels'
 import { DocumentActions } from '@/components/admin/DocumentActions'
@@ -37,6 +38,9 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
     ? await prisma.answerCitation.count({ where: { legalChunk: { documentVersionId: currentVersion.id } } })
     : 0
 
+  const user = await getCurrentUser()
+  const canManage = user?.role === 'ADMIN'
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4">
@@ -46,7 +50,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
             {documentTypeLabel[document.documentType]} · {document.jurisdictionName} · {documentStatusLabel[document.status]}
           </p>
         </div>
-        <DocumentActions documentId={document.id} status={document.status} />
+        {canManage && <DocumentActions documentId={document.id} status={document.status} />}
       </div>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4">
@@ -106,10 +110,12 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
         </div>
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="mb-2 text-sm font-semibold text-navy-700">새 버전 등록</h2>
-        <DocumentUploadForm legalDocumentId={document.id} />
-      </section>
+      {canManage && (
+        <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="mb-2 text-sm font-semibold text-navy-700">새 버전 등록</h2>
+          <DocumentUploadForm legalDocumentId={document.id} />
+        </section>
+      )}
 
       {currentVersion?.rawText && (
         <section className="rounded-lg border border-slate-200 bg-white p-4">

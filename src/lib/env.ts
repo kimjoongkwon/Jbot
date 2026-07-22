@@ -11,6 +11,14 @@ const envSchema = z.object({
   VOYAGE_EMBEDDING_MODEL: z.string().optional().default(''),
   NEXT_PUBLIC_APP_NAME: z.string().optional().default('정비사업 법령 AI'),
   MAX_UPLOAD_SIZE_MB: z.coerce.number().positive().optional().default(20),
+  // 세션 쿠키(HMAC) 서명 키. 배포 환경에서는 반드시 무작위 값으로 교체해야 한다.
+  // (`openssl rand -hex 32` 등으로 생성). 비어 있으면(다른 키들과 동일한 관례로
+  // 빈 문자열을 "미설정"으로 취급) 로컬 개발 전용 기본값으로 대체된다.
+  SESSION_SECRET: z
+    .string()
+    .optional()
+    .default('')
+    .transform((value) => (value.trim().length > 0 ? value : 'dev-only-insecure-session-secret-change-me')),
 })
 
 export type Env = z.infer<typeof envSchema>

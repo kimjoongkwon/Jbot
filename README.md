@@ -85,6 +85,15 @@ sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
 sudo apt-get install -y postgresql-16-pgvector
 ```
 
+pgvector가 설치되지 않은 상태에서 마이그레이션을 실행하면 다음과 같은 오류가 발생한다.
+
+```
+ERROR: could not open extension control file ".../vector.control": No such file or directory
+```
+
+이 오류가 보이면 pgvector 확장 자체가 설치되어 있지 않다는 뜻이다. 위 설치 명령을 실행한 뒤
+마이그레이션을 다시 시도한다.
+
 ## Prisma 마이그레이션
 
 ```bash

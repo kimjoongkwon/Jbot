@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { SESSION_COOKIE_NAME } from '@/lib/auth/session'
+import { createSessionCookieValue, SESSION_COOKIE_NAME } from '@/lib/auth/session'
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData()
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   }
 
   const response = NextResponse.redirect(new URL('/chat', request.url))
-  response.cookies.set(SESSION_COOKIE_NAME, user.id, {
+  response.cookies.set(SESSION_COOKIE_NAME, createSessionCookieValue(user.id), {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',
