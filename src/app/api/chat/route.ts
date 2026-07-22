@@ -40,6 +40,7 @@ async function hydrateCitationChunks(
     sourceChunks.push({
       citationId,
       legalChunkId: chunk.id,
+      legalDocumentId: chunk.documentVersion.legalDocument.id,
       documentTitle: chunk.documentVersion.legalDocument.title,
       documentType: chunk.documentVersion.legalDocument.documentType,
       jurisdictionName: chunk.documentVersion.legalDocument.jurisdictionName,
@@ -65,7 +66,7 @@ function buildDisplaySources(sourceChunks: CitationSourceChunk[], scores: Map<st
     effectiveFrom: c.effectiveFrom,
     isCurrent: c.isCurrent,
     relevanceScore: scores.get(c.citationId) ?? null,
-    detailUrl: `/documents/${c.legalChunkId}`,
+    detailUrl: `/documents/${c.legalDocumentId}`,
   }))
 }
 

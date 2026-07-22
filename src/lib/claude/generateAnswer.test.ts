@@ -19,6 +19,7 @@ const BASE_ENV: Env = {
 const CHUNK: CitationSourceChunk = {
   citationId: 'C1',
   legalChunkId: 'chunk-1',
+  legalDocumentId: 'doc-1',
   documentTitle: '가상 정비사업 테스트법',
   documentType: 'LAW',
   jurisdictionName: '전국',

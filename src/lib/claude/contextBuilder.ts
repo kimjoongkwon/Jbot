@@ -4,6 +4,7 @@ import { legalHierarchyLabel } from '../search/legalHierarchy'
 export interface CitationSourceChunk {
   citationId: string
   legalChunkId: string
+  legalDocumentId: string
   documentTitle: string
   documentType: DocumentType
   jurisdictionName: string
