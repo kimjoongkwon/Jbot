@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # 실제 시크릿이 아닌 CI 전용 값이다. Claude/임베딩 키는 비워두며, 이 값들이
+  # 없어도 lint/typecheck/unit/integration/build/E2E가 모두 통과해야 한다.
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/legal_chatbot
+  ANTHROPIC_API_KEY: ''
+  ANTHROPIC_MODEL: ''
+  EMBEDDING_PROVIDER: none
+  OPENAI_API_KEY: ''
+  OPENAI_EMBEDDING_MODEL: text-embedding-3-small
+  VOYAGE_API_KEY: ''
+  VOYAGE_EMBEDDING_MODEL: ''
+  NEXT_PUBLIC_APP_NAME: 정비사업 법령 AI
+  MAX_UPLOAD_SIZE_MB: '20'
+  BOOTSTRAP_ADMIN_EMAIL: ''
+  BOOTSTRAP_ADMIN_PASSWORD: ''
+  BOOTSTRAP_ADMIN_NAME: ''
+  DEV_AUTH_BYPASS: 'false'
+  STORAGE_PROVIDER: local
+  STORAGE_LOCAL_ROOT: storage/uploads
+
+jobs:
+  test:
+    name: Lint · Typecheck · Unit · Integration · Build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: legal_chatbot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Run migrations
+        run: npx prisma migrate deploy
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Integration tests (real PostgreSQL + pgvector)
+        run: npm run test:integration
+
+      - name: Build (single-run production bundle check)
+        run: npm run build
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: legal_chatbot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Run migrations
+        run: npx prisma migrate deploy
+
+      - name: Seed database (fixed dev-only password, local/CI only)
+        run: npm run db:seed
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: npm run test:e2e
