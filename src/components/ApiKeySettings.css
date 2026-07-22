@@ -1,0 +1,88 @@
+.api-key-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.api-key-settings h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.api-key-settings__hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.api-key-settings__form {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.api-key-settings__form input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.82rem;
+}
+
+.api-key-settings__form button {
+  padding: 0.4rem 0.7rem;
+  border: none;
+  border-radius: 6px;
+  background: #111827;
+  color: white;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.api-key-settings__form button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.api-key-settings__saved {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.api-key-settings__saved span {
+  flex: 1;
+  font-family: monospace;
+}
+
+.api-key-settings__saved button {
+  border: none;
+  background: transparent;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: #374151;
+}
+
+.api-key-settings__clear {
+  color: #dc2626 !important;
+}
+
+.api-key-settings__model {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: #374151;
+}
+
+.api-key-settings__model select {
+  padding: 0.35rem 0.4rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
