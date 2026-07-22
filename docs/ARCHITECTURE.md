@@ -35,7 +35,7 @@
 업로드(admin/documents/new)
   → validateUploadFile (확장자/MIME/크기/파일명/경로조작/실행파일 검증)
   → computeContentHash → 중복 확인 (DocumentVersion.contentHash unique)
-  → saveUploadedFile (storage/uploads/에 원본 보존)
+  → FileStorageProvider.put (STORAGE_PROVIDER에 따라 로컬 디스크 또는 S3에 원본 보존)
   → extractText (txt/md 직접 읽기, pdf: pdf-parse, docx: mammoth)
       → 텍스트가 거의 없으면(스캔 문서) NO_TEXT_EXTRACTED로 중단, 추측 없음
   → LegalDocument + DocumentVersion 레코드 생성 (status: PROCESSING)

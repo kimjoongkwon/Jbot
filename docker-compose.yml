@@ -1,0 +1,47 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-legal_chatbot}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 배포/업데이트할 때마다 한 번 실행하고 끝나는 1회성 서비스다:
+  #   docker compose run --rm migrate
+  migrate:
+    build:
+      context: .
+      target: migrator
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: 'no'
+
+  app:
+    build:
+      context: .
+      target: runner
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
+    restart: unless-stopped
+    # STORAGE_PROVIDER=local일 때만 의미가 있다. STORAGE_PROVIDER=s3라면 이 볼륨은
+    # 그냥 비어 있게 되며 무해하다 (docs/DEPLOYMENT.md "파일 저장소" 참고).
+    volumes:
+      - uploads:/app/storage/uploads
+
+volumes:
+  pgdata:
+  uploads:

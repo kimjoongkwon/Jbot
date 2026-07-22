@@ -70,8 +70,16 @@
 
 ## 그 외 알려진 후속 과제
 
-- **실제 인증**: 현재 "로그인할 사용자 선택" 방식의 간이 세션(평문 쿠키)이다. 비밀번호/
-  OAuth/SSO 등 실제 인증으로 교체 필요(`src/lib/auth/session.ts`에 명시).
+- **OAuth/SSO 미지원**: 이메일/비밀번호 인증만 지원한다(`src/lib/auth/session.ts`,
+  `src/app/api/auth/login/route.ts`). 사내 SSO 연동이 필요해지면 별도 프로바이더 추가가
+  필요하다.
+- **감사로그 조회 화면 없음**: `AuditLog`에 로그인 성공/실패/계정 잠금/비밀번호 변경/
+  사용자 관리 이벤트 등이 기록되고 있지만(`src/lib/audit/auditLog.ts`), 이를 관리자가
+  화면에서 조회하는 UI는 아직 없다(DB를 직접 조회해야 함).
+- **파일 다운로드 UI 없음**: `FileStorageProvider`(`src/lib/storage/`)로 원본 업로드
+  파일을 저장하지만, 이를 사용자/관리자 화면에서 다시 다운로드하는 API·버튼은 아직 없다
+  (파싱된 본문은 DB의 `rawText`로 이미 조회 가능하므로 원본 파일 자체는 감사 목적의
+  보관 용도다).
 - **OCR**: 스캔 PDF 자동 텍스트화는 미지원.
 - **HWP 직접 파싱**: 미지원, PDF/DOCX/TXT 변환 안내만 제공.
 - **벡터 인덱스(ANN)**: 현재 pgvector 컬럼에 ivfflat/hnsw 인덱스를 만들지 않았다(데이터
