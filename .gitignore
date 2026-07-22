@@ -1,0 +1,25 @@
+# dependencies
+node_modules
+
+# next.js
+.next/
+out/
+build/
+
+# env
+.env
+.env*.local
+
+# testing
+coverage/
+playwright-report/
+test-results/
+
+# misc
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+
+# uploads (로컬 개발용 원본 파일 저장 디렉터리)
+storage/uploads/*
+!storage/uploads/.gitkeep
