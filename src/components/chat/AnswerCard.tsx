@@ -36,6 +36,11 @@ export function AnswerCard({ turn }: { turn: ChatTurn }) {
             </div>
           </Section>
         )}
+        {turn.messageId && (
+          <div className="border-t border-amber-200 pt-3">
+            <FeedbackBar chatMessageId={turn.messageId} />
+          </div>
+        )}
       </div>
     )
   }
