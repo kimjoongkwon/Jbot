@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { REVIEW_STATUS_OPTIONS } from '@/lib/labels'
+import { csrfFetch } from '@/lib/security/csrfFetch'
 
 export function ReviewStatusSelect({ messageId, value }: { messageId: string; value: string }) {
   const router = useRouter()
@@ -11,7 +12,7 @@ export function ReviewStatusSelect({ messageId, value }: { messageId: string; va
   async function handleChange(next: string) {
     setBusy(true)
     try {
-      await fetch(`/api/reviews/${messageId}`, {
+      await csrfFetch(`/api/reviews/${messageId}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ reviewStatus: next }),

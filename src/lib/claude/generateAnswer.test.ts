@@ -14,7 +14,10 @@ const BASE_ENV: Env = {
   VOYAGE_EMBEDDING_MODEL: '',
   NEXT_PUBLIC_APP_NAME: '정비사업 법령 AI',
   MAX_UPLOAD_SIZE_MB: 20,
-  SESSION_SECRET: 'test-secret',
+  BOOTSTRAP_ADMIN_EMAIL: '',
+  BOOTSTRAP_ADMIN_PASSWORD: '',
+  BOOTSTRAP_ADMIN_NAME: '',
+  DEV_AUTH_BYPASS: false,
 }
 
 const CHUNK: CitationSourceChunk = {

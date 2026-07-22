@@ -1,7 +1,7 @@
 import type { BusinessType } from '@prisma/client'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
-import { canViewInternalMemo } from '@/lib/auth/permissions'
+import { canViewInternalMemo, requiresPasswordChange } from '@/lib/auth/permissions'
 import { prisma } from '@/lib/db'
 import { isClaudeConfigured } from '@/lib/env'
 import { hybridSearch } from '@/lib/search/hybridSearch'
@@ -9,7 +9,8 @@ import { legalHierarchyLabel } from '@/lib/search/legalHierarchy'
 import type { CitationSourceChunk } from '@/lib/claude/contextBuilder'
 import { generateLegalAnswer } from '@/lib/claude/generateAnswer'
 import { NO_EVIDENCE_CONCLUSION, ANSWER_DISCLAIMER } from '@/lib/claude/systemPrompt'
-import { toErrorResponse } from '@/lib/http/errorResponse'
+import { mustChangePasswordResponse, toErrorResponse } from '@/lib/http/errorResponse'
+import { assertCsrf } from '@/lib/security/csrf'
 
 const CLAUDE_NOT_CONFIGURED_NOTICE =
   '관련 법령 자료는 검색되었으나 AI 답변 기능이 설정되지 않았습니다. ANTHROPIC_API_KEY를 설정하면 근거 기반 해석 답변을 사용할 수 있습니다.'
@@ -74,8 +75,10 @@ function buildDisplaySources(sourceChunks: CitationSourceChunk[], scores: Map<st
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 })
+  if (requiresPasswordChange(user)) return mustChangePasswordResponse()
 
   try {
+    assertCsrf(request)
     const body = (await request.json()) as ChatRequestBody
     const question = body.question?.trim()
     if (!question) {

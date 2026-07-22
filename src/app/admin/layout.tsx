@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { LogoutButton } from '@/components/auth/LogoutButton'
 import { requireRole } from '@/lib/auth/session'
 
 const NAV_ITEMS = [
@@ -10,6 +11,7 @@ const NAV_ITEMS = [
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireRole(['ADMIN', 'REVIEWER'])
   if (!user) redirect('/login')
+  if (user.mustChangePassword) redirect('/account/security')
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
@@ -35,11 +37,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <a href="/chat" className="text-navy-100 hover:underline">
             챗봇 화면으로
           </a>
-          <form action="/api/auth/logout" method="POST">
-            <button type="submit" className="text-navy-100 hover:underline">
-              로그아웃
-            </button>
-          </form>
+          <a href="/account/security" className="text-navy-100 hover:underline">
+            비밀번호 변경
+          </a>
+          <LogoutButton className="text-left text-navy-100 hover:underline" />
         </div>
       </aside>
       <main className="flex-1 bg-slate-50 p-4 md:p-6">{children}</main>

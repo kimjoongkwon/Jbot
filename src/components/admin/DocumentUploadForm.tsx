@@ -7,6 +7,7 @@ import {
   DOCUMENT_TYPE_OPTIONS,
   JURISDICTION_TYPE_OPTIONS,
 } from '@/lib/labels'
+import { csrfFetch } from '@/lib/security/csrfFetch'
 
 const HWP_MESSAGE =
   '현재 HWP 원본 파일의 직접 분석은 지원하지 않습니다. PDF, DOCX 또는 TXT로 변환하여 등록해 주세요.'
@@ -39,7 +40,7 @@ export function DocumentUploadForm({ legalDocumentId }: { legalDocumentId?: stri
     const url = legalDocumentId ? `/api/documents/${legalDocumentId}/versions` : '/api/documents'
 
     try {
-      const res = await fetch(url, { method: 'POST', body: formData })
+      const res = await csrfFetch(url, { method: 'POST', body: formData })
       const data = await res.json()
       if (!res.ok) {
         setError(data.error ?? '등록에 실패했습니다.')

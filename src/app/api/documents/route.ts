@@ -1,9 +1,11 @@
 import type { BusinessType, DocumentType, JurisdictionType } from '@prisma/client'
 import { type NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth/session'
+import { requiresPasswordChange } from '@/lib/auth/permissions'
 import { prisma } from '@/lib/db'
-import { toErrorResponse } from '@/lib/http/errorResponse'
+import { mustChangePasswordResponse, toErrorResponse } from '@/lib/http/errorResponse'
 import { registerLegalDocument } from '@/lib/documents/registerDocument'
+import { assertCsrf } from '@/lib/security/csrf'
 
 function parseDate(value: FormDataEntryValue | null): Date | null {
   if (!value || typeof value !== 'string' || value.trim().length === 0) return null
@@ -47,8 +49,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const user = await requireRole(['ADMIN'])
   if (!user) return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 })
+  if (requiresPasswordChange(user)) return mustChangePasswordResponse()
 
   try {
+    assertCsrf(request)
     const formData = await request.formData()
     const file = formData.get('file')
     if (!(file instanceof File)) {
