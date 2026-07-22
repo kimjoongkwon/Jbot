@@ -32,6 +32,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               {item.label}
             </a>
           ))}
+          {user.role === 'ADMIN' && (
+            <a
+              href="/admin/users"
+              className="whitespace-nowrap rounded-md px-3 py-2 text-sm text-navy-50 hover:bg-navy-800"
+            >
+              사용자 관리
+            </a>
+          )}
         </nav>
         <div className="mt-auto flex flex-col gap-2 pt-4 text-xs">
           <a href="/chat" className="text-navy-100 hover:underline">
