@@ -1,0 +1,94 @@
+name: Preview DB Setup (manual)
+
+# 이 워크플로는 오직 수동 실행(workflow_dispatch)으로만 동작한다.
+# 일반 push/PR에서는 절대 실행되지 않는다 — 아래 `on:`에 workflow_dispatch만 있다.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: '실수 방지용 확인. 정확히 "APPLY-PREVIEW-DB"를 입력해야 실행된다.'
+        required: true
+        type: string
+      run_seed:
+        description: 'Preview 시드(db:seed:preview)도 함께 실행할지 여부'
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  migrate:
+    name: Migrate + (optional) seed PREVIEW_DATABASE_URL
+    runs-on: ubuntu-latest
+    steps:
+      - name: 확인 문구 검증 (운영 DB 실수 실행 방지)
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "APPLY-PREVIEW-DB" ]; then
+            echo "::error::confirm 입력값이 'APPLY-PREVIEW-DB'와 일치하지 않습니다. 실수로 운영 DB에 실행되는 것을 막기 위한 안전장치이니, 이 워크플로가 PREVIEW_DATABASE_URL(미리보기 전용 DB)을 대상으로 한다는 것을 확인한 뒤 정확한 문구로 다시 실행해 주세요."
+            exit 1
+          fi
+          echo "확인 문구가 일치합니다. Preview DB 대상으로 진행합니다."
+
+      - name: PREVIEW_DATABASE_URL 시크릿 존재 확인
+        run: |
+          if [ -z "${{ secrets.PREVIEW_DATABASE_URL }}" ]; then
+            echo "::error::PREVIEW_DATABASE_URL 시크릿이 설정되어 있지 않습니다. 저장소 Settings → Secrets and variables → Actions에서 추가한 뒤 다시 실행해 주세요."
+            exit 1
+          fi
+          echo "PREVIEW_DATABASE_URL 시크릿이 존재합니다. (값은 로그에 출력하지 않습니다.)"
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: pgvector 확장 확인/활성화
+        env:
+          DATABASE_URL: ${{ secrets.PREVIEW_DATABASE_URL }}
+        run: |
+          set -e
+          # 연결 문자열 자체는 절대 echo/출력하지 않는다.
+          if ! psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS vector;" > /tmp/pgvector-setup.log 2>&1; then
+            echo "::error::pgvector 확장을 활성화하지 못했습니다. Neon 프로젝트에서 pgvector가 지원되는지, 연결 문자열의 사용자에게 확장 생성 권한이 있는지 확인해 주세요."
+            cat /tmp/pgvector-setup.log
+            exit 1
+          fi
+          echo "pgvector 확장 확인/활성화 완료."
+
+      - name: Prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.PREVIEW_DATABASE_URL }}
+        run: |
+          if ! npx prisma migrate deploy; then
+            echo "::error::prisma migrate deploy가 실패했습니다. 위 로그에서 구체적인 원인(연결 실패, 권한 부족, 마이그레이션 충돌 등)을 확인해 주세요."
+            exit 1
+          fi
+
+      - name: Preview 시드 실행
+        if: ${{ github.event.inputs.run_seed == 'true' }}
+        env:
+          DATABASE_URL: ${{ secrets.PREVIEW_DATABASE_URL }}
+        run: |
+          if ! npm run db:seed:preview; then
+            echo "::error::Preview 시드 실행이 실패했습니다. 위 로그를 확인해 주세요(마이그레이션은 이미 적용된 상태입니다)."
+            exit 1
+          fi
+
+      - name: 완료 요약
+        run: |
+          echo "마이그레이션 적용 완료."
+          if [ "${{ github.event.inputs.run_seed }}" = "true" ]; then
+            echo "Preview 시드(사용자 3명 + 가상 문서 2건)도 적용되었습니다."
+          else
+            echo "run_seed=false로 시드는 건너뛰었습니다."
+          fi
