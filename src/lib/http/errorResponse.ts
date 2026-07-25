@@ -18,3 +18,15 @@ export function toErrorResponse(error: unknown): NextResponse {
   console.error(error)
   return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 })
 }
+
+/** PREVIEW_READ_ONLY_MODE=true인 환경에서 문서 업로드 API가 호출됐을 때 반환한다. */
+export function previewReadOnlyResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      error:
+        '현재 미리보기 환경은 읽기 전용입니다. 문서 업로드는 운영용 Object Storage 연결 후 사용할 수 있습니다.',
+      code: 'PREVIEW_READ_ONLY_MODE',
+    },
+    { status: 503 },
+  )
+}

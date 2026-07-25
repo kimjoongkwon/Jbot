@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth/session'
 import { prisma } from '@/lib/db'
+import { getEnv, isPreviewReadOnlyMode } from '@/lib/env'
 import { businessTypeLabel, documentStatusLabel, documentTypeLabel } from '@/lib/labels'
 import { DocumentActions } from '@/components/admin/DocumentActions'
 import { DocumentUploadForm } from '@/components/admin/DocumentUploadForm'
@@ -113,7 +114,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
       {canManage && (
         <section className="rounded-lg border border-slate-200 bg-white p-4">
           <h2 className="mb-2 text-sm font-semibold text-navy-700">새 버전 등록</h2>
-          <DocumentUploadForm legalDocumentId={document.id} />
+          <DocumentUploadForm legalDocumentId={document.id} readOnly={isPreviewReadOnlyMode(getEnv())} />
         </section>
       )}
 

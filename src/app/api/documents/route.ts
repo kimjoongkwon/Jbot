@@ -2,7 +2,8 @@ import type { BusinessType, DocumentType, JurisdictionType } from '@prisma/clien
 import { type NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth/session'
 import { prisma } from '@/lib/db'
-import { toErrorResponse } from '@/lib/http/errorResponse'
+import { getEnv, isPreviewReadOnlyMode } from '@/lib/env'
+import { previewReadOnlyResponse, toErrorResponse } from '@/lib/http/errorResponse'
 import { registerLegalDocument } from '@/lib/documents/registerDocument'
 
 function parseDate(value: FormDataEntryValue | null): Date | null {
@@ -47,6 +48,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const user = await requireRole(['ADMIN'])
   if (!user) return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 })
+  if (isPreviewReadOnlyMode(getEnv())) return previewReadOnlyResponse()
 
   try {
     const formData = await request.formData()
