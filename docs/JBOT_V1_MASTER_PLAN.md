@@ -69,13 +69,17 @@
 
 ## 4. 위험 요소
 
-- **로컬 DB 마이그레이션 이력 drift**: 이번 세션에서 `legal_chunk_search_support`
-  마이그레이션이 `_prisma_migrations`에는 "적용 완료"로 기록되어 있었지만 실제로는
-  `searchVector` 컬럼과 GIN 인덱스가 생성되어 있지 않았던 사례를 발견하고 수동으로
-  복구했다. 로컬 개발 DB에서만 재현되는 이력 불일치로 추정되며, 운영(Neon) 최초
-  배포 시 `prisma migrate deploy`를 실제로 실행해 스키마를 직접 확인하는 절차가
-  필요하다(이미 `VERCEL_PREVIEW.md`/`preview-db-setup.yml`에 있음, 운영 배포 문서에도
-  동일 확인 절차를 명시할 것).
+- **(해결됨) 마이그레이션 체인이 searchVector를 삭제하던 실제 버그**: 처음에는
+  로컬 DB만의 이력 drift로 추정했으나, Stage 1 감사에서 완전히 새 DB에 마이그레이션
+  체인을 처음부터 적용해 재현한 결과 **실제 버그**로 확인됐다 — 병합된
+  `production_auth_and_sessions` 마이그레이션이 직전 마이그레이션이 추가한
+  `searchVector` 컬럼/GIN 인덱스를 DROP하고 있어, Neon 최초 배포·CI·신규 클론 등
+  **모든 신규 배포**에서 하이브리드 검색의 키워드/FTS 단계가 항상 실패하는 상태였다.
+  신규 마이그레이션(`20260726123000_restore_legal_chunk_search_vector`)으로 복구,
+  빈 DB에서 전체 체인 재적용으로 재검증 완료(`docs/JBOT_V1_STAGE1_AUDIT.md` #21).
+  **교훈**: 로컬 DB 상태만으로 마이그레이션을 검증하지 말고, 반드시 빈 DB에
+  `prisma migrate deploy`를 처음부터 실행해 확인할 것 — 이미 컬럼이 존재하는 DB에서는
+  이런 종류의 버그가 절대 드러나지 않는다.
 - Claude API 키 없이는 "5. Claude API 키가 설정된 경우..." E2E가 항상 skip된다 —
   실제 키를 넣어 수동 확인이 필요한 유일한 케이스.
 - 병합으로 인해 두 브랜치가 각각 다른 시점에 작성한 로직이 섞여 있어, 자동 병합된

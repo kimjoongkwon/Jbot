@@ -28,17 +28,22 @@ BLOCKER/HIGH/MEDIUM/LOW/PASS로 채점한다. BLOCKER/HIGH는 발견 즉시 수�
 | 18 | Preview 읽기전용 모드 | PASS | `PREVIEW_READ_ONLY_MODE` — 문서/버전 등록 API 503, 검색은 항상 가능 확인 | - |
 | 19 | health/ready API | PASS | `/api/health`는 DB 미접근 200, `/api/ready`는 연결+마이그레이션 확인 후 200/503, 민감정보(연결문자열/비밀번호) 미노출 확인 | - |
 | 20 | Vercel 빌드 | PASS | `DATABASE_URL` 빈 값/불능/정상 3개 시나리오 모두 `npm run build` 성공 재확인(이번 세션에 3회 반복 검증) | - |
-| 21 | GitHub Actions | PASS | `ci.yml`이 lint→typecheck→unit→integration(pgvector 서비스 컨테이너)→build를 한 잡에서, e2e를 별도 잡에서 실행. 시크릿 없이도 전부 통과하도록 CI 전용 값만 사용 | - |
+| 21 | GitHub Actions / **마이그레이션 체인 무결성** | **BLOCKER → 수정완료** | 병합된 `production_auth_and_sessions` 마이그레이션이 직전 `legal_chunk_search_support` 마이그레이션이 추가한 `searchVector` 생성 컬럼과 GIN 인덱스를 **실수로 DROP**하는 SQL을 포함하고 있었다(인증 브랜치 작성 시점의 `schema.prisma`에 이 raw-SQL 전용 컬럼이 반영돼 있지 않아 Prisma가 drift로 오인, 자동 생성한 것으로 추정). 로컬에서 이전에 "마이그레이션 이력 drift"로 오인해 수동으로 컬럼을 복구했던 것이 사실은 이 실제 버그의 증상이었음을 재확인 — **완전히 새로운 빈 DB에 `prisma migrate deploy`를 처음부터 실행하면(Neon 최초 배포, CI, 신규 개발자 클론 전부 해당) `searchVector`가 최종적으로 존재하지 않아 하이브리드 검색의 키워드/FTS 단계가 항상 오류로 실패한다.** 새 DB(`legal_chatbot_migration_test`)를 만들어 5개 마이그레이션을 처음부터 순서대로 적용해 재현·확인함 | 컬럼을 되살리는 신규 마이그레이션 `20260726123000_restore_legal_chunk_search_vector` 추가(기존 마이그레이션 파일은 이미 다른 곳에 적용됐을 수 있으므로 수정하지 않고 새 마이그레이션으로 복구). 완전히 새 DB로 5개 마이그레이션 처음부터 재적용해 재확인, 로컬 dev DB도 처음부터 재구성해 전체 검증 통과 확인 |
 | 22 | 모바일 화면 | PASS | iPhone 13 뷰포트(390px)로 `/login`, `/chat`, `/admin/documents` 실측: `document.body.scrollWidth === innerWidth`(가로 스크롤 없음), 넓은 표는 `table-scroll`(자체 `overflow-x:auto`) 컨테이너 안에서만 스크롤되어 페이지 전체 레이아웃은 깨지지 않음 | - |
 | 23 | 테스트 mock 과다 여부 | PASS | 통합테스트(32건)는 전부 실제 PostgreSQL 사용(mock 없음), E2E(17건)는 실제 Next.js dev 서버+실제 DB로 실행. 단위테스트만 순수함수 대상으로 mock 최소화 | - |
 | 24 | README-package.json 일치 | PASS | `package.json`의 `db:seed:preview`/`admin:create`/`db:deploy` 스크립트가 `DEPLOYMENT.md`/`README.md`에 모두 문서화됨 | - |
 
 ## 요약
 
-- PASS: 20개 영역
+- PASS: 19개 영역
+- BLOCKER(발견 즉시 수정 완료): 1건 — 병합된 마이그레이션이 `searchVector`를 삭제해 모든 신규 배포에서 키워드/FTS 검색이 항상 실패하는 결함
 - HIGH(발견 즉시 수정 완료): 3건 — 사업유형 필터 버그, 절차단계 필터 미구현, 다운로드/감사로그 엔드포인트 부재
-- BLOCKER: 0건
 - 남은 조치 필요: 없음 (모두 수정·테스트·커밋 완료)
 
-Stage 1 감사 결과 BLOCKER는 발견되지 않았고, HIGH 3건은 모두 이 브랜치에서 수정·
-재검증·커밋을 완료했다(`e337140`, `7bdd8b4`). 지시서 §5 원칙에 따라 Stage 2로 진행한다.
+Stage 1 감사에서 BLOCKER 1건(마이그레이션 체인 결함 — 신규 배포 시 핵심 검색 기능
+전체가 항상 실패하는, 이번 감사에서 가장 심각한 발견)과 HIGH 3건을 발견했으며 전부
+이 브랜치에서 수정·재검증·커밋을 완료했다(`e337140`, `7bdd8b4`, 및 마이그레이션
+복구 커밋). 완전히 새로운 빈 DB에 전체 마이그레이션 체인을 처음부터 적용해
+재현·검증하는 절차가 이번에 결정적이었다 — 기존에 이미 컬럼이 존재하는 로컬 DB에
+`migrate deploy`만 실행해서는 이 버그가 드러나지 않는다. 지시서 §5 원칙에 따라
+Stage 2로 진행한다.

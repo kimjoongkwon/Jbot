@@ -62,6 +62,17 @@ Stage 1 완료 (종합 코드 감사, `docs/JBOT_V1_STAGE1_AUDIT.md`) → **Stag
       커밋 `7bdd8b4`. 전체 검증 3회차: lint/typecheck 클린, 단위 127 + 통합 32
       passed(신규 필터 회귀 테스트 2건 포함), build 3개 시나리오 모두 성공,
       E2E 16 passed / 1 skipped
+- [x] **BLOCKER 발견·수정: 마이그레이션 체인이 searchVector를 삭제하는 버그.**
+      Stage 1 감사 도중 "로컬 DB 이력 drift"로 처음 기록했던 현상을 완전히 새
+      DB(`legal_chatbot_migration_test`)에 마이그레이션 5개를 처음부터 적용해
+      재현한 결과, 실제로는 병합된 `20260722154410_production_auth_and_sessions`
+      마이그레이션이 `searchVector` 컬럼/GIN 인덱스를 DROP하는 SQL을 포함하고
+      있어서 **모든 신규 배포(Neon 최초 배포, CI, 새 클론)에서 하이브리드 검색의
+      키워드/FTS 단계가 항상 실패**하는 상태였음을 확인. 신규 마이그레이션
+      `20260726123000_restore_legal_chunk_search_vector`로 컬럼을 복구(기존
+      마이그레이션 파일은 다른 곳에 이미 적용됐을 수 있어 수정하지 않음). 로컬
+      dev DB를 완전히 삭제 후 5개 마이그레이션으로 처음부터 재구성해 재검증:
+      단위 127 + 통합 32 passed, build 성공, E2E 16 passed/1 skipped.
 
 ## 진행 중인 항목
 
@@ -82,6 +93,8 @@ Stage 1 완료 (종합 코드 감사, `docs/JBOT_V1_STAGE1_AUDIT.md`) → **Stag
 ## 마지막 커밋
 
 ```
+(다음 커밋 예정) fix: 마이그레이션이 searchVector를 삭제하던 BLOCKER 버그 복구
+bfa8651 docs: Stage 1 종합 코드 감사 결과 + 완료체크리스트/실행상태 갱신
 7bdd8b4 fix: 사업유형/절차단계 필터가 일반 법령을 숨기는 결함 수정 + 절차단계 필터 신설
 0f2a560 docs: 장기 실행 상태관리 문서 3종 신설 (마스터플랜/실행상태/완료체크리스트)
 e337140 feat: 원본 파일 다운로드 API + 감사로그 조회 화면 추가 (Stage 3 공격 시나리오 보완)
