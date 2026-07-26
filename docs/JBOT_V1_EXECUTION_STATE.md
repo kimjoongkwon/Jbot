@@ -7,8 +7,8 @@
 
 ## 현재 단계
 
-Stage 1 완료 (종합 코드 감사, `docs/JBOT_V1_STAGE1_AUDIT.md`) → **Stage 2 (실제 인증이
-지시서 §6 체크리스트를 전부 충족하는지 재검증) 시작 예정**
+Stage 1(종합 코드 감사) + Stage 2(실제 인증 재검증) 완료 → **Stage 4(파일 저장소,
+지시서 §8) 대기 중 — 원문이 중간에 잘려 사용자의 후속 지시 필요**
 
 ## 완료된 항목
 
@@ -73,6 +73,16 @@ Stage 1 완료 (종합 코드 감사, `docs/JBOT_V1_STAGE1_AUDIT.md`) → **Stag
       마이그레이션 파일은 다른 곳에 이미 적용됐을 수 있어 수정하지 않음). 로컬
       dev DB를 완전히 삭제 후 5개 마이그레이션으로 처음부터 재구성해 재검증:
       단위 127 + 통합 32 passed, build 성공, E2E 16 passed/1 skipped.
+- [x] **Stage 2 재검증 완료**: 지시서 §6 체크리스트를 코드로 하나씩 재확인.
+      세션고정 방지(`login/route.ts`가 항상 새 토큰 발급, 기존 쿠키 재사용 없음),
+      마지막 ADMIN 보호(`admin/users/[id]/route.ts`의 `hasOtherActiveAdmin` —
+      역할변경·비활성화 양쪽 모두 차단), 비밀번호 변경 시 다른 세션 자동 무효화
+      (`account/password/route.ts`), 관리자 발급 임시비밀번호가 항상 무작위 생성
+      (`generateTemporaryPassword`, 고정 기본값 없음), 비밀번호 없는 기존 계정은
+      로그인 자체가 항상 거부(`passwordHash` nullable, 자동 백필 없음),
+      DEV_AUTH_BYPASS가 환경변수 검증(`assertDevAuthBypassSafety`)과 라우트 자체
+      (`isDevAuthBypassEnabled() → 404`) 이중으로 프로덕션 차단됨을 모두 코드
+      직접 확인으로 재검증. 추가 결함 없음.
 
 ## 진행 중인 항목
 
@@ -108,18 +118,15 @@ faccd0f fix: 병합 후 남은 타입체크 오류 수정 (env.test.ts, previewR
 
 ## 다음 액션 (새 세션이 이어받을 경우 그대로 실행)
 
-1. `docs/JBOT_V1_STAGE1_AUDIT.md`와 `docs/JBOT_V1_ACCEPTANCE_CHECKLIST.md`를 열어
-   Stage 1이 이미 완료되었음을 확인한다(BLOCKER 0, HIGH 3건 전부 수정 완료).
-2. **Stage 2**: 지시서 §6의 실제 인증/사용자관리 체크리스트를 항목별로 다시 훑어,
-   이미 병합된 코드(`src/lib/auth/*`, `/admin/users`, `/account/security`)가 병합
-   이후에도 여전히 전부 충족하는지 재확인한다. 특히 병합으로 합쳐진 로직(예:
-   `mustChangePassword` 리다이렉트와 Preview 읽기전용 모드의 상호작용) 위주로
-   다시 점검한다.
-3. **Stage 3**은 이미 8/8 공격 시나리오 통과로 완료 처리됨(추가 조치 불필요).
-4. **Stage 4**(파일 저장소)는 지시서 §8 원문이 "interface FileStorageProvider {...}"
-   부분에서 잘려 전달되었다. 사용자가 이어지는 지시를 주면 그 내용과 현재 이미
-   병합된 `FileStorageProvider`/`LocalFileStorageProvider`/`S3FileStorageProvider`
-   구현을 대조해 추가로 필요한 작업만 판단한다. 사용자 지시가 오기 전까지는 이
-   단계를 임의로 확장하지 않는다.
-5. Stage 2 재검증이 끝나면 마스터 플랜(`JBOT_V1_MASTER_PLAN.md`)의 단계 표와
-   실행상태(이 문서)를 다시 갱신한다.
+1. Stage 1(감사)과 Stage 2(실제 인증 재검증)는 모두 완료됨 — 각각
+   `docs/JBOT_V1_STAGE1_AUDIT.md`와 이 문서의 "완료된 항목"에서 근거 확인 가능.
+2. **Stage 3**은 이미 8/8 공격 시나리오 통과로 완료 처리됨(추가 조치 불필요).
+3. **Stage 4**(파일 저장소)는 지시서 §8 원문이 "interface FileStorageProvider {...}"
+   부분에서 잘려 전달되었다. **사용자가 이어지는 지시(§8 이후 원문)를 줘야만
+   다음 단계로 진행 가능** — 그 내용과 현재 이미 병합된
+   `FileStorageProvider`/`LocalFileStorageProvider`/`S3FileStorageProvider` 구현을
+   대조해 추가로 필요한 작업만 판단한다. 사용자 지시가 오기 전까지는 이 단계를
+   임의로 확장하지 않는다.
+4. 사용자가 실제 Neon/Vercel/S3 계정과 자격증명을 제공하면(마스터 플랜 §5
+   BLOCKED_EXTERNAL), 문서·코드는 이미 준비되어 있으므로 바로 실배포 단계로
+   진행할 수 있다.
