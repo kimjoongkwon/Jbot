@@ -19,14 +19,37 @@ const envSchema = z.object({
   VOYAGE_EMBEDDING_MODEL: z.string().optional().default(''),
   NEXT_PUBLIC_APP_NAME: z.string().optional().default('정비사업 법령 AI'),
   MAX_UPLOAD_SIZE_MB: z.coerce.number().positive().optional().default(20),
-  // 세션 쿠키(HMAC) 서명 키. 배포 환경에서는 반드시 무작위 값으로 교체해야 한다.
-  // (`openssl rand -hex 32` 등으로 생성). 비어 있으면(다른 키들과 동일한 관례로
-  // 빈 문자열을 "미설정"으로 취급) 로컬 개발 전용 기본값으로 대체된다.
-  SESSION_SECRET: z
+  // 최초 관리자 부트스트랩 계정. 셋 다 채워져 있을 때만 앱 시작 시 1회
+  // 생성을 시도하며(이미 같은 이메일의 사용자가 있으면 건드리지 않음),
+  // 비밀번호를 로그에 남기지 않는다. 최초 생성 후에는 README 안내대로
+  // 이 값들을 반드시 제거한다.
+  BOOTSTRAP_ADMIN_EMAIL: z.string().optional().default(''),
+  BOOTSTRAP_ADMIN_PASSWORD: z.string().optional().default(''),
+  BOOTSTRAP_ADMIN_NAME: z.string().optional().default(''),
+  // 개발 전용 인증 우회 스위치. NODE_ENV==='production'이면 이 값이 무엇이든
+  // 절대 우회를 허용하지 않으며, 오히려 'true'로 설정된 채 프로덕션에서
+  // 기동되면 앱을 즉시 실패시킨다(요구사항 §3-7) — 아래 assertDevAuthBypassSafety 참고.
+  DEV_AUTH_BYPASS: z
     .string()
     .optional()
-    .default('')
-    .transform((value) => (value.trim().length > 0 ? value : 'dev-only-insecure-session-secret-change-me')),
+    .default('false')
+    .transform((value) => value.trim().toLowerCase() === 'true'),
+  // 업로드 원본 파일 저장소 (요구사항 §6). 'local'은 단일 서버 로컬 디스크
+  // 전용 개발용 구현이며, 서버리스·다중 인스턴스 운영 환경에서는 's3'로
+  // 설정해 S3 호환 오브젝트 스토리지(AWS S3, R2, MinIO 등)를 사용해야 한다.
+  STORAGE_PROVIDER: z.enum(['local', 's3']).optional().default('local'),
+  STORAGE_LOCAL_ROOT: z.string().optional().default('storage/uploads'),
+  STORAGE_S3_BUCKET: z.string().optional().default(''),
+  STORAGE_S3_REGION: z.string().optional().default('us-east-1'),
+  // AWS S3라면 비워둔다. R2/MinIO 등 S3 호환 스토리지일 때만 지정한다.
+  STORAGE_S3_ENDPOINT: z.string().optional().default(''),
+  STORAGE_S3_FORCE_PATH_STYLE: z
+    .string()
+    .optional()
+    .default('false')
+    .transform((value) => value.trim().toLowerCase() === 'true'),
+  STORAGE_S3_ACCESS_KEY_ID: z.string().optional().default(''),
+  STORAGE_S3_SECRET_ACCESS_KEY: z.string().optional().default(''),
   // Vercel Preview처럼 영구 파일 저장소가 없는 환경에서 문서 업로드 기능을 안전하게
   // 비활성화하기 위한 스위치다. true면 업로드 UI가 비활성화되고 업로드 API는 503을
   // 반환한다. 로컬 개발(기본 false)에서는 기존 업로드 기능이 그대로 유지된다.
@@ -54,8 +77,37 @@ export function getEnv(): Env {
   if (!parsed.success) {
     throw new Error(`환경변수 설정이 올바르지 않습니다: ${parsed.error.message}`)
   }
+  assertDevAuthBypassSafety(parsed.data)
+  assertStorageConfigSafety(parsed.data)
   cachedEnv = parsed.data
   return cachedEnv
+}
+
+/** STORAGE_PROVIDER=s3인데 버킷이 비어 있으면 파일 저장이 항상 실패하므로 시작 시점에 바로 알린다. */
+function assertStorageConfigSafety(env: Env): void {
+  if (env.STORAGE_PROVIDER === 's3' && env.STORAGE_S3_BUCKET.trim().length === 0) {
+    throw new Error('STORAGE_PROVIDER=s3로 설정했지만 STORAGE_S3_BUCKET이 비어 있습니다.')
+  }
+}
+
+/**
+ * DEV_AUTH_BYPASS=true 상태로 프로덕션이 기동되는 것을 막는 안전장치.
+ * NODE_ENV==='production'에서는 이 플래그가 설정되어 있으면 무조건
+ * 앱 시작을 중단시킨다 (요구사항 §3-7: "프로덕션에서는 설정되어 있어도
+ * 앱이 기동에 실패하거나 명확한 보안 오류를 던져야 한다").
+ */
+function assertDevAuthBypassSafety(env: Env): void {
+  if (env.DEV_AUTH_BYPASS && process.env.NODE_ENV === 'production') {
+    throw new Error(
+      '보안 오류: DEV_AUTH_BYPASS=true 상태로는 프로덕션(NODE_ENV=production)에서 실행할 수 없습니다. ' +
+        '배포 환경변수에서 DEV_AUTH_BYPASS를 제거하세요.',
+    )
+  }
+}
+
+/** 현재 환경에서 개발용 인증 우회가 실제로 허용되는지 여부. */
+export function isDevAuthBypassEnabled(env: Env = getEnv()): boolean {
+  return process.env.NODE_ENV !== 'production' && env.DEV_AUTH_BYPASS
 }
 
 export function isClaudeConfigured(env: Env = getEnv()): boolean {

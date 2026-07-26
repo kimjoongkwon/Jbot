@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { DuplicateFileError, ValidationError } from '../documents/errors'
 import { ClaudeNotConfiguredError } from '../claude/generateAnswer'
+import { CsrfError } from '../security/csrf'
 
 /**
  * 서버 오류의 stack trace를 사용자에게 노출하지 않는다 (요구사항 §14).
@@ -13,6 +14,9 @@ export function toErrorResponse(error: unknown): NextResponse {
   }
   if (error instanceof ClaudeNotConfiguredError) {
     return NextResponse.json({ error: error.message, code: 'CLAUDE_NOT_CONFIGURED' }, { status: 200 })
+  }
+  if (error instanceof CsrfError) {
+    return NextResponse.json({ error: error.message }, { status: 403 })
   }
 
   console.error(error)
@@ -28,5 +32,13 @@ export function previewReadOnlyResponse(): NextResponse {
       code: 'PREVIEW_READ_ONLY_MODE',
     },
     { status: 503 },
+  )
+}
+
+/** 임시 비밀번호 등으로 비밀번호 변경이 강제된 사용자가 일반 기능 API를 호출할 때 반환한다. */
+export function mustChangePasswordResponse(): NextResponse {
+  return NextResponse.json(
+    { error: '비밀번호를 변경해야 계속 이용할 수 있습니다.', code: 'MUST_CHANGE_PASSWORD' },
+    { status: 403 },
   )
 }

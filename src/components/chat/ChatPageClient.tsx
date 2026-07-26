@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { LogoutButton } from '@/components/auth/LogoutButton'
+import { csrfFetch } from '@/lib/security/csrfFetch'
 import { AnswerCard } from './AnswerCard'
 import { FilterPanel, type ChatFilters } from './FilterPanel'
 import type { ChatTurn } from './types'
@@ -35,7 +37,7 @@ export function ChatPageClient({ userName, userRole }: { userName: string; userR
     ])
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await csrfFetch('/api/chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -93,11 +95,10 @@ export function ChatPageClient({ userName, userRole }: { userName: string; userR
               관리자
             </a>
           )}
-          <form action="/api/auth/logout" method="POST">
-            <button type="submit" className="text-slate-500 hover:underline">
-              로그아웃
-            </button>
-          </form>
+          <a href="/account/security" className="text-slate-500 hover:underline">
+            비밀번호 변경
+          </a>
+          <LogoutButton className="text-slate-500 hover:underline" />
         </div>
       </header>
 

@@ -1,11 +1,12 @@
+import path from 'node:path'
 import type { BusinessType, DocumentType, JurisdictionType } from '@prisma/client'
 import { recordAuditLog } from '../audit/auditLog'
 import { prisma } from '../db'
 import { getEnv } from '../env'
+import { getFileStorageProvider } from '../storage'
 import { DuplicateFileError, ValidationError } from './errors'
 import { computeContentHash } from './hashing'
 import { runIngestionPipeline } from './ingestionPipeline'
-import { saveUploadedFile } from './storage'
 import { extractText } from './textExtraction'
 import { validateUploadFile } from './fileValidation'
 
@@ -53,10 +54,17 @@ async function ingestUploadedFile(file: UploadedFileInput) {
     throw new DuplicateFileError()
   }
 
-  const storagePath = await saveUploadedFile(file.buffer, contentHash, file.filename)
+  // path.basename으로 경로 조작 가능성을 제거한 뒤 contentHash를 붙여 키 충돌을 막는다.
+  const safeFilename = path.basename(file.filename)
+  const storageKey = `${contentHash}-${safeFilename}`
+  const stored = await getFileStorageProvider().put({
+    key: storageKey,
+    buffer: file.buffer,
+    contentType: file.mimeType,
+  })
   const extraction = await extractText(file.buffer, file.filename)
 
-  return { contentHash, storagePath, extraction }
+  return { contentHash, storagePath: stored.key, extraction }
 }
 
 function parsingStatusFromExtraction(status: 'SUCCESS' | 'NO_TEXT_EXTRACTED' | 'FAILED') {

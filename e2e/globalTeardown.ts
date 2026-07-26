@@ -9,6 +9,18 @@ export default async function globalTeardown() {
   try {
     await prisma.legalDocument.deleteMany({ where: { title: { startsWith: '[TEST]' } } })
     await prisma.chatSession.deleteMany({ where: {} })
+
+    const testUsers = await prisma.user.findMany({
+      where: { email: { startsWith: 'e2e-' } },
+      select: { id: true },
+    })
+    const testUserIds = testUsers.map((u) => u.id)
+    if (testUserIds.length > 0) {
+      await prisma.userSession.deleteMany({ where: { userId: { in: testUserIds } } })
+      await prisma.loginAttempt.deleteMany({ where: { userId: { in: testUserIds } } })
+      await prisma.auditLog.deleteMany({ where: { userId: { in: testUserIds } } })
+      await prisma.user.deleteMany({ where: { id: { in: testUserIds } } })
+    }
   } finally {
     await prisma.$disconnect()
   }

@@ -1,59 +1,75 @@
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { cookies } from 'next/headers'
 import type { Role, User } from '@prisma/client'
 import { prisma } from '../db'
-import { getEnv } from '../env'
 
-export const SESSION_COOKIE_NAME = 'jk_legal_session_user'
+export const SESSION_COOKIE_NAME = 'jk_session'
+export const SESSION_TTL_MS = 12 * 60 * 60 * 1000 // 12시간
+
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex')
+}
+
+function generateSessionToken(): string {
+  return randomBytes(32).toString('hex')
+}
+
+export interface CreatedSession {
+  token: string
+  expiresAt: Date
+}
 
 /**
- * 매우 단순화된 세션 구현이다. User 모델에 비밀번호 필드가 없으므로(요구사항 §5),
- * 이번 MVP는 "로그인할 사용자 선택" 방식으로 역할(RBAC) 구분만 시연한다.
- * 실제 운영 전에는 비밀번호/OAuth 등 실제 인증으로 반드시 교체해야 한다
- * (docs/NEXT_STEPS.md 참고).
- *
- * 쿠키 값은 `userId.서명(HMAC-SHA256)` 형식으로 SESSION_SECRET을 이용해 서명한다.
- * 이는 "누구인지 증명"하는 실제 인증은 아니지만(비밀번호 없음), 로그인 절차 없이
- * 브라우저 쿠키 값만 다른 사용자의 id로 바꿔 적어 임의로 관리자 등 다른 역할을
- * 사칭하는 것은 막아준다(서명 없이는 유효한 쿠키를 만들 수 없음).
+ * 새 세션을 발급한다. 로그인 시 매번 완전히 새로운 무작위 토큰을 생성하며,
+ * 기존에 클라이언트가 들고 있던 쿠키 값을 재사용하지 않는다(세션 고정 공격 방지).
+ * 토큰 원문은 DB에 저장하지 않고 SHA-256 해시만 저장한다.
  */
-function signUserId(userId: string): string {
-  const { SESSION_SECRET } = getEnv()
-  const signature = createHmac('sha256', SESSION_SECRET).update(userId).digest('hex')
-  return `${userId}.${signature}`
+export async function createSession(userId: string, userAgent?: string | null): Promise<CreatedSession> {
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } })
+  const token = generateSessionToken()
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS)
+
+  await prisma.userSession.create({
+    data: {
+      userId,
+      tokenHash: hashToken(token),
+      sessionVersionAtIssue: user.sessionVersion,
+      expiresAt,
+      userAgent: userAgent?.slice(0, 255) ?? null,
+    },
+  })
+
+  return { token, expiresAt }
 }
 
-function verifySignedUserId(signedValue: string): string | null {
-  const separatorIndex = signedValue.lastIndexOf('.')
-  if (separatorIndex <= 0) return null
-
-  const userId = signedValue.slice(0, separatorIndex)
-  const providedSignature = signedValue.slice(separatorIndex + 1)
-
-  const { SESSION_SECRET } = getEnv()
-  const expectedSignature = createHmac('sha256', SESSION_SECRET).update(userId).digest('hex')
-
-  const providedBuffer = Buffer.from(providedSignature, 'hex')
-  const expectedBuffer = Buffer.from(expectedSignature, 'hex')
-  if (providedBuffer.length !== expectedBuffer.length) return null
-  if (!timingSafeEqual(providedBuffer, expectedBuffer)) return null
-
-  return userId
-}
-
-export function createSessionCookieValue(userId: string): string {
-  return signUserId(userId)
-}
-
+/**
+ * 현재 요청의 세션 쿠키를 검증하고 사용자를 반환한다. 다음 중 하나라도
+ * 해당하면 로그인하지 않은 것으로 취급한다: 쿠키 없음/세션 없음/철회됨/
+ * 만료됨/발급 이후 사용자의 sessionVersion이 바뀜(비밀번호 변경·역할 변경·
+ * 비활성화 등)/계정 비활성화. sessionVersion 비교 덕분에 역할·활성 상태
+ * 변경이 다음 요청부터 즉시 반영된다.
+ */
 export async function getCurrentUser(): Promise<User | null> {
   const cookieStore = await cookies()
-  const rawValue = cookieStore.get(SESSION_COOKIE_NAME)?.value
-  if (!rawValue) return null
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value
+  if (!token) return null
 
-  const userId = verifySignedUserId(rawValue)
-  if (!userId) return null
+  const session = await prisma.userSession.findUnique({
+    where: { tokenHash: hashToken(token) },
+    include: { user: true },
+  })
+  if (!session) return null
+  if (session.revokedAt) return null
+  if (session.expiresAt.getTime() < Date.now()) return null
+  if (session.sessionVersionAtIssue !== session.user.sessionVersion) return null
+  if (!session.user.isActive) return null
 
-  return prisma.user.findUnique({ where: { id: userId } })
+  // 매 요청마다 쓰기가 발생하지 않도록 일정 간격(5분)마다만 lastSeenAt을 갱신한다.
+  if (Date.now() - session.lastSeenAt.getTime() > 5 * 60 * 1000) {
+    void prisma.userSession.update({ where: { id: session.id }, data: { lastSeenAt: new Date() } }).catch(() => undefined)
+  }
+
+  return session.user
 }
 
 export async function requireRole(roles: Role[]): Promise<User | null> {
@@ -61,4 +77,37 @@ export async function requireRole(roles: Role[]): Promise<User | null> {
   if (!user) return null
   if (!roles.includes(user.role)) return null
   return user
+}
+
+/** 현재 요청의 세션 쿠키가 가리키는 세션을 철회한다(로그아웃). */
+export async function revokeSessionByToken(token: string): Promise<void> {
+  await prisma.userSession.updateMany({
+    where: { tokenHash: hashToken(token), revokedAt: null },
+    data: { revokedAt: new Date() },
+  })
+}
+
+/**
+ * 특정 사용자의 세션을 모두 철회한다(exceptToken이 있으면 그 세션은 제외).
+ * 비밀번호 변경 시 "현재 세션을 제외한 모든 세션 무효화"에 사용한다.
+ */
+export async function revokeAllSessionsForUser(userId: string, exceptToken?: string): Promise<void> {
+  const exceptTokenHash = exceptToken ? hashToken(exceptToken) : undefined
+  await prisma.userSession.updateMany({
+    where: {
+      userId,
+      revokedAt: null,
+      ...(exceptTokenHash ? { tokenHash: { not: exceptTokenHash } } : {}),
+    },
+    data: { revokedAt: new Date() },
+  })
+}
+
+/**
+ * 사용자의 sessionVersion을 올려, 이미 발급된 모든 세션(현재 요청 포함)을
+ * 즉시 무효화한다. 비밀번호 변경, 역할 변경, 계정 비활성화 시 호출한다.
+ */
+export async function bumpSessionVersion(userId: string): Promise<void> {
+  await prisma.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } })
+  await revokeAllSessionsForUser(userId)
 }
