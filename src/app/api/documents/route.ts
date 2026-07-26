@@ -1,4 +1,4 @@
-import type { BusinessType, DocumentType, JurisdictionType } from '@prisma/client'
+import type { BusinessType, DocumentType, JurisdictionType, ProcedureStage } from '@prisma/client'
 import { type NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth/session'
 import { requiresPasswordChange } from '@/lib/auth/permissions'
@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer())
     const businessTypes = formData.getAll('businessTypes').map((v) => String(v)) as BusinessType[]
+    const procedureStages = formData.getAll('procedureStages').map((v) => String(v)) as ProcedureStage[]
 
     const result = await registerLegalDocument(
       {
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
         jurisdictionType: String(formData.get('jurisdictionType') ?? 'NATIONAL') as JurisdictionType,
         jurisdictionName: String(formData.get('jurisdictionName') ?? '전국'),
         businessTypes,
+        procedureStages,
         issuingAuthority: (formData.get('issuingAuthority') as string) || null,
         sourceUrl: (formData.get('sourceUrl') as string) || null,
         description: (formData.get('description') as string) || null,

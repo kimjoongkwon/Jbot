@@ -45,6 +45,7 @@ describe('원본 파일 다운로드 API', () => {
         jurisdictionType: 'NATIONAL',
         jurisdictionName: '전국',
         businessTypes: [],
+        procedureStages: [],
       },
       { versionLabel: '최초 등록', isCurrent: true },
       { buffer: Buffer.from('[TEST] 다운로드 원본 파일 내용입니다.', 'utf-8'), filename: 'download-test.txt', mimeType: 'text/plain' },

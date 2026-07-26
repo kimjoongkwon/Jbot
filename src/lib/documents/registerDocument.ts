@@ -1,5 +1,5 @@
 import path from 'node:path'
-import type { BusinessType, DocumentType, JurisdictionType } from '@prisma/client'
+import type { BusinessType, DocumentType, JurisdictionType, ProcedureStage } from '@prisma/client'
 import { recordAuditLog } from '../audit/auditLog'
 import { prisma } from '../db'
 import { getEnv } from '../env'
@@ -23,6 +23,7 @@ export interface DocumentMetaInput {
   jurisdictionType: JurisdictionType
   jurisdictionName: string
   businessTypes: BusinessType[]
+  procedureStages: ProcedureStage[]
   issuingAuthority?: string | null
   sourceUrl?: string | null
   description?: string | null
@@ -89,6 +90,7 @@ export async function registerLegalDocument(
       jurisdictionType: meta.jurisdictionType,
       jurisdictionName: meta.jurisdictionName,
       businessTypes: meta.businessTypes,
+      procedureStages: meta.procedureStages,
       issuingAuthority: meta.issuingAuthority ?? null,
       sourceUrl: meta.sourceUrl ?? null,
       description: meta.description ?? null,

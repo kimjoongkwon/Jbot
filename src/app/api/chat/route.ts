@@ -1,4 +1,4 @@
-import type { BusinessType } from '@prisma/client'
+import type { BusinessType, ProcedureStage } from '@prisma/client'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
 import { canViewInternalMemo, requiresPasswordChange } from '@/lib/auth/permissions'
@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
       question,
       region: body.region ?? null,
       businessType: body.businessType ?? null,
+      procedureStage: (body.procedureStage as ProcedureStage) ?? null,
       referenceDate,
       includeInternalMemo,
     })
