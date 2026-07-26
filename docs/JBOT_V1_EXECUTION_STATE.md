@@ -3,11 +3,12 @@
 **이 문서는 매 단계 종료 후 갱신한다.** 새 Claude 세션이 이 문서만 읽고 바로 이어서
 작업할 수 있도록, 추측 없이 사실만 기록한다.
 
-마지막 갱신: Stage 3 공격 시나리오 보완 완료 직후 (Stage 1 감사 시작 전)
+마지막 갱신: Stage 1 종합 코드 감사 완료 직후 (Stage 2 재검증 시작 전)
 
 ## 현재 단계
 
-Stage 0.5 완료 (장기 상태관리 문서 3종 작성) → **Stage 1 (종합 코드 감사) 시작 예정**
+Stage 1 완료 (종합 코드 감사, `docs/JBOT_V1_STAGE1_AUDIT.md`) → **Stage 2 (실제 인증이
+지시서 §6 체크리스트를 전부 충족하는지 재검증) 시작 예정**
 
 ## 완료된 항목
 
@@ -42,6 +43,25 @@ Stage 0.5 완료 (장기 상태관리 문서 3종 작성) → **Stage 1 (종합 
       - 커밋 `e337140`
 - [x] 전체 검증 2회차(Stage 3 보완 후): lint 클린, typecheck 클린, 통합테스트 30
       passed, E2E 16 passed / 1 skipped
+- [x] **Stage 1: 종합 코드 감사 완료** (`docs/JBOT_V1_STAGE1_AUDIT.md`) — 지시서
+      §5의 ~20개 영역을 실제 코드/쿼리/화면 캡처로 확인. BLOCKER 0건, HIGH 3건
+      발견 즉시 수정:
+      1. `hybridSearch`의 businessTypes 필터가 빈 배열(사업유형 미지정 = 전체
+         적용 의도)인 일반 법령을 특정 사업유형 선택 시 완전히 숨기던 버그를
+         실제 DB 쿼리로 재현·확인 후 `OR isEmpty/has` 패턴으로 수정
+      2. 절차단계(procedureStage) 필터가 `ChatSession`에 저장만 되고
+         `hybridSearch`에 전혀 전달되지 않던 결함 — `LegalDocument.procedureStages`
+         필드 신설(마이그레이션 `20260726120000_legal_document_procedure_stages`)
+         후 등록폼→API→검색까지 전체 경로 연결(프런트엔드는 이미 값을 보내고
+         있었음)
+      3. (Stage 3에서 이미 다룬 다운로드/감사로그 엔드포인트 부재도 이 감사
+         목록에 포함해 §16/§17 항목으로 재기록)
+      모바일 뷰포트(iPhone 13, 390px) 실측: `/login`·`/chat`·`/admin/documents`
+      가로 스크롤 없음, 넓은 표는 자체 컨테이너 안에서만 스크롤 확인
+      (`document.body.scrollWidth === innerWidth`)
+      커밋 `7bdd8b4`. 전체 검증 3회차: lint/typecheck 클린, 단위 127 + 통합 32
+      passed(신규 필터 회귀 테스트 2건 포함), build 3개 시나리오 모두 성공,
+      E2E 16 passed / 1 skipped
 
 ## 진행 중인 항목
 
@@ -62,24 +82,31 @@ Stage 0.5 완료 (장기 상태관리 문서 3종 작성) → **Stage 1 (종합 
 ## 마지막 커밋
 
 ```
+7bdd8b4 fix: 사업유형/절차단계 필터가 일반 법령을 숨기는 결함 수정 + 절차단계 필터 신설
+0f2a560 docs: 장기 실행 상태관리 문서 3종 신설 (마스터플랜/실행상태/완료체크리스트)
 e337140 feat: 원본 파일 다운로드 API + 감사로그 조회 화면 추가 (Stage 3 공격 시나리오 보완)
 faccd0f fix: 병합 후 남은 타입체크 오류 수정 (env.test.ts, previewReadiness)
 8fd4971 (merge) claude/production-auth-storage-v1 → claude/jbot-v1-production-completion-v1
 ```
 
 브랜치는 `origin/claude/jbot-v1-production-completion-v1`에 푸시 완료.
+`docs/JBOT_V1_STAGE1_AUDIT.md`도 함께 존재(다음 커밋에 포함 예정 — 아직 미커밋 상태로
+남아있다면 반드시 커밋할 것).
 
 ## 다음 액션 (새 세션이 이어받을 경우 그대로 실행)
 
-1. `docs/JBOT_V1_ACCEPTANCE_CHECKLIST.md`를 열어 현재 체크 상태를 확인한다.
-2. **Stage 1: 종합 코드 감사**를 시작한다. 지시서 §5에 나열된 ~20개 영역을 하나씩
-   실제 코드를 읽어 BLOCKER/HIGH/MEDIUM/LOW/PASS로 채점하고, 이 문서의 "진행 중인
-   항목"에 감사 진행 상황을 기록한다.
-3. 감사에서 BLOCKER/HIGH가 나오면 그 자리에서 바로 수정 → 재검증 → 커밋한 뒤에만
-   다음 영역으로 넘어간다.
-4. 감사 완료 후 Stage 2(실제 인증)가 지시서 §6 체크리스트를 전부 충족하는지
-   항목별로 재확인한다(이미 병합된 코드가 대부분 충족하지만, 병합 이후 상호작용
-   재검증이 아직 안 된 세부 항목이 있을 수 있다).
-5. Stage 4(파일 저장소)는 지시서 §8 원문이 도중에 잘려서 전달되었다. 사용자가
-   이어지는 지시를 주면 그 내용과 현재 이미 병합된 `FileStorageProvider` 구현을
-   대조해 추가로 필요한 작업만 판단한다.
+1. `docs/JBOT_V1_STAGE1_AUDIT.md`와 `docs/JBOT_V1_ACCEPTANCE_CHECKLIST.md`를 열어
+   Stage 1이 이미 완료되었음을 확인한다(BLOCKER 0, HIGH 3건 전부 수정 완료).
+2. **Stage 2**: 지시서 §6의 실제 인증/사용자관리 체크리스트를 항목별로 다시 훑어,
+   이미 병합된 코드(`src/lib/auth/*`, `/admin/users`, `/account/security`)가 병합
+   이후에도 여전히 전부 충족하는지 재확인한다. 특히 병합으로 합쳐진 로직(예:
+   `mustChangePassword` 리다이렉트와 Preview 읽기전용 모드의 상호작용) 위주로
+   다시 점검한다.
+3. **Stage 3**은 이미 8/8 공격 시나리오 통과로 완료 처리됨(추가 조치 불필요).
+4. **Stage 4**(파일 저장소)는 지시서 §8 원문이 "interface FileStorageProvider {...}"
+   부분에서 잘려 전달되었다. 사용자가 이어지는 지시를 주면 그 내용과 현재 이미
+   병합된 `FileStorageProvider`/`LocalFileStorageProvider`/`S3FileStorageProvider`
+   구현을 대조해 추가로 필요한 작업만 판단한다. 사용자 지시가 오기 전까지는 이
+   단계를 임의로 확장하지 않는다.
+5. Stage 2 재검증이 끝나면 마스터 플랜(`JBOT_V1_MASTER_PLAN.md`)의 단계 표와
+   실행상태(이 문서)를 다시 갱신한다.
