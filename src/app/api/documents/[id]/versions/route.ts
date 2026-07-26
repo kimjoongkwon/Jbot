@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth/session'
 import { registerDocumentVersion } from '@/lib/documents/registerDocument'
-import { toErrorResponse } from '@/lib/http/errorResponse'
+import { getEnv, isPreviewReadOnlyMode } from '@/lib/env'
+import { previewReadOnlyResponse, toErrorResponse } from '@/lib/http/errorResponse'
 
 function parseDate(value: FormDataEntryValue | null): Date | null {
   if (!value || typeof value !== 'string' || value.trim().length === 0) return null
@@ -12,6 +13,7 @@ function parseDate(value: FormDataEntryValue | null): Date | null {
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireRole(['ADMIN'])
   if (!user) return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 })
+  if (isPreviewReadOnlyMode(getEnv())) return previewReadOnlyResponse()
 
   const { id } = await params
   try {

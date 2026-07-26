@@ -11,7 +11,13 @@ import {
 const HWP_MESSAGE =
   '현재 HWP 원본 파일의 직접 분석은 지원하지 않습니다. PDF, DOCX 또는 TXT로 변환하여 등록해 주세요.'
 
-export function DocumentUploadForm({ legalDocumentId }: { legalDocumentId?: string }) {
+export function DocumentUploadForm({
+  legalDocumentId,
+  readOnly = false,
+}: {
+  legalDocumentId?: string
+  readOnly?: boolean
+}) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -32,6 +38,7 @@ export function DocumentUploadForm({ legalDocumentId }: { legalDocumentId?: stri
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (readOnly) return
     setSubmitting(true)
     setError(null)
 
@@ -57,6 +64,13 @@ export function DocumentUploadForm({ legalDocumentId }: { legalDocumentId?: stri
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4">
+      {readOnly && (
+        <p className="rounded bg-amber-50 p-2 text-xs text-amber-800">
+          현재 미리보기 환경은 읽기 전용입니다. 문서 업로드는 운영용 Object Storage 연결 후
+          사용할 수 있습니다.
+        </p>
+      )}
+      <fieldset disabled={readOnly} className="contents">
       {!legalDocumentId && (
         <>
           <Field label="문서명" required>
@@ -145,11 +159,12 @@ export function DocumentUploadForm({ legalDocumentId }: { legalDocumentId?: stri
 
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || readOnly}
         className="rounded-md bg-navy-700 px-4 py-2 text-sm font-medium text-white disabled:bg-slate-300"
       >
         {submitting ? '등록 중...' : '등록'}
       </button>
+      </fieldset>
     </form>
   )
 }
