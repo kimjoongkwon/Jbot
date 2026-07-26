@@ -83,6 +83,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
                 <th className="py-1.5 pr-3">파싱 상태</th>
                 <th className="py-1.5 pr-3">청크 수</th>
                 <th className="py-1.5 pr-3">최근 처리</th>
+                <th className="py-1.5 pr-3">원본</th>
               </tr>
             </thead>
             <tbody>
@@ -103,6 +104,14 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
                     {v.ingestionJobs[0]?.errorMessage && (
                       <p className="text-red-600">{v.ingestionJobs[0].errorMessage}</p>
                     )}
+                  </td>
+                  <td className="py-1.5 pr-3">
+                    <a
+                      href={`/api/documents/${document.id}/versions/${v.id}/download`}
+                      className="text-xs text-accent-600 hover:underline"
+                    >
+                      다운로드
+                    </a>
                   </td>
                 </tr>
               ))}

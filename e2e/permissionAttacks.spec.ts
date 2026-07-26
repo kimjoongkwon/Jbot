@@ -52,6 +52,28 @@ test.describe('API 권한 재검증 (§4 공격 시나리오)', () => {
     await context.close()
   })
 
+  test('USER가 문서 원본 다운로드 URL을 직접 입력해도 403이다', async ({ browser }) => {
+    const { context, page } = await newContextLoggedInAs(browser, 'USER')
+    const res = await page.request.get('/api/documents/nonexistent-id/versions/nonexistent-version/download')
+    expect(res.status()).toBe(403)
+    await context.close()
+  })
+
+  test('USER와 REVIEWER가 감사로그 API/화면을 직접 호출하면 403/404이다 (ADMIN 전용)', async ({ browser }) => {
+    const user = await newContextLoggedInAs(browser, 'USER')
+    const userApiRes = await user.page.request.get('/api/admin/audit-log')
+    expect(userApiRes.status()).toBe(403)
+    await user.context.close()
+
+    const reviewer = await newContextLoggedInAs(browser, 'REVIEWER')
+    const reviewerApiRes = await reviewer.page.request.get('/api/admin/audit-log')
+    expect(reviewerApiRes.status()).toBe(403)
+
+    const reviewerPageRes = await reviewer.page.request.get('/admin/audit-log', { maxRedirects: 0 })
+    expect(reviewerPageRes.status()).toBe(404)
+    await reviewer.context.close()
+  })
+
   test('REVIEWER가 문서 상태 변경·재처리 API를 호출하면 403이다', async ({ browser }) => {
     const { context, page } = await newContextLoggedInAs(browser, 'REVIEWER')
 
