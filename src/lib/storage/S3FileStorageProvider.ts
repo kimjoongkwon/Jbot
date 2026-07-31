@@ -46,6 +46,7 @@ export class S3FileStorageProvider implements FileStorageProvider {
         Key: input.key,
         Body: input.buffer,
         ContentType: input.contentType,
+        ContentDisposition: input.contentDisposition,
       }),
     )
     return { key: input.key, size: input.buffer.length, provider: 's3' }

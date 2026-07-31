@@ -3,6 +3,12 @@ export interface PutFileInput {
   key: string
   buffer: Buffer
   contentType?: string
+  /**
+   * 다운로드 시 Content-Disposition 헤더 값(예: `attachment; filename="..."`).
+   * S3 구현체는 이 값을 객체 메타데이터로 저장해, getSignedDownloadUrl()로
+   * 발급한 서명 URL로 직접 접속해도 원본 파일명이 그대로 유지되게 한다.
+   */
+  contentDisposition?: string
 }
 
 export interface StoredFile {

@@ -28,7 +28,7 @@ export async function GET(
     return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 })
   }
 
-  const buffer = await getFileStorageProvider().get(version.storagePath)
+  const provider = getFileStorageProvider()
 
   await recordAuditLog({
     userId: user.id,
@@ -38,6 +38,17 @@ export async function GET(
     legalDocumentId: id,
   })
 
+  // S3 등 서명 URL을 지원하는 저장소에서는 서버가 파일 전체를 메모리로 읽어
+  // 프록시하지 않고, 짧게 만료되는 서명 URL로 리다이렉트해 클라이언트가
+  // 스토리지에서 직접 내려받게 한다(대용량 파일에서도 서버 메모리를 쓰지
+  // 않는다). Local 저장소처럼 서명 URL을 지원하지 않는 구현체는 기존대로
+  // 버퍼를 직접 응답한다.
+  if (provider.getSignedDownloadUrl) {
+    const signedUrl = await provider.getSignedDownloadUrl(version.storagePath, 60)
+    return NextResponse.redirect(signedUrl, { status: 302 })
+  }
+
+  const buffer = await provider.get(version.storagePath)
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,
     headers: {

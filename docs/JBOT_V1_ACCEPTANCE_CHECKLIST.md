@@ -32,9 +32,11 @@
       (`legal-chatbot.spec.ts`의 INTERNAL_MEMO 테스트, 다운로드 API의
       `canViewInternalMemo` 검사로 확인)
 - [x] 11. 운영 환경 파일 저장소는 S3 호환 Object Storage를 지원한다
-      (`S3FileStorageProvider` 구현 존재. **실제 S3/호환 버킷에 대한 실제 연동
-      테스트는 아직 수행하지 않음** — 사용자의 실제 버킷 자격증명이 있어야 가능,
-      단위테스트는 로컬 구현체만 대상)
+      (`S3FileStorageProvider` 구현 존재 + Stage 4 재감사로 단위테스트 8건 신설
+      (AWS SDK 모킹), 다운로드 API가 서명 URL 지원 저장소에서는 파일을 프록시
+      하지 않고 302 리다이렉트하도록 수정(대용량 파일 대응). **다만 실제 S3/호환
+      버킷에 대한 실제 연동(진짜 자격증명으로 업로드·다운로드) 테스트는 아직
+      수행하지 않음** — 사용자의 실제 버킷 자격증명이 있어야 가능)
 - [x] 12. 로컬 개발은 Local Storage를 쓸 수 있다
       (`LocalFileStorageProvider.test.ts` 통과, 기본값으로 설정됨)
 - [ ] 13. Neon PostgreSQL+pgvector, Vercel에 배포 가능하다

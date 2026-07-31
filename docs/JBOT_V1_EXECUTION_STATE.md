@@ -3,12 +3,12 @@
 **이 문서는 매 단계 종료 후 갱신한다.** 새 Claude 세션이 이 문서만 읽고 바로 이어서
 작업할 수 있도록, 추측 없이 사실만 기록한다.
 
-마지막 갱신: Stage 1 종합 코드 감사 완료 직후 (Stage 2 재검증 시작 전)
+마지막 갱신: Stage 4(파일 저장소) 완료 직후
 
 ## 현재 단계
 
-Stage 1(종합 코드 감사) + Stage 2(실제 인증 재검증) 완료 → **Stage 4(파일 저장소,
-지시서 §8) 대기 중 — 원문이 중간에 잘려 사용자의 후속 지시 필요**
+Stage 1(종합 코드 감사) + Stage 2(실제 인증 재검증) + Stage 3(공격 시나리오) +
+Stage 4(파일 저장소) 모두 완료 → **§8 이후(Stage 5+) 지시서 내용 대기 중**
 
 ## 완료된 항목
 
@@ -83,6 +83,37 @@ Stage 1(종합 코드 감사) + Stage 2(실제 인증 재검증) 완료 → **St
       DEV_AUTH_BYPASS가 환경변수 검증(`assertDevAuthBypassSafety`)과 라우트 자체
       (`isDevAuthBypassEnabled() → 404`) 이중으로 프로덕션 차단됨을 모두 코드
       직접 확인으로 재검증. 추가 결함 없음.
+- [x] **PR #4 생성 + 실제 GitHub Actions CI 최초 검증**: `ci.yml`이 지금까지
+      `main`에 병합된 적이 없어 실제로 실행된 적이 없었음을 발견(사용자 확인 후
+      PR 생성). 첫 실행에서 E2E 잡이 17개 테스트 전부
+      `browserType.launch: Failed to launch chromium because executable doesn't
+      exist at /opt/pw-browsers/chromium`로 실패 — `playwright.config.ts`가 개발에
+      쓰인 특정 샌드박스 환경에만 존재하는 Chromium 경로를 무조건
+      `executablePath`로 지정하고 있었음(GitHub Actions 러너에는 그 경로가 없어
+      `playwright install`로 설치한 브라우저를 무시하고 있었음). 그 경로가 실제
+      존재할 때만 지정하고 없으면 Playwright 기본 브라우저 탐색을 쓰도록 수정,
+      재푸시 후 CI 두 잡(Lint·Typecheck·Unit·Integration·Build / E2E) 모두
+      success 확인. 이 브랜치가 실제 GitHub Actions 검증을 통과한 것은 이번이
+      처음이다.
+- [x] **Stage 4(파일 저장소) 완료**: 지시서 §8 원문의 이어지는 부분을 끝내
+      받지 못해, 사용자의 "계속 진행" 지시에 따라 이미 병합된
+      `FileStorageProvider`/`Local`/`S3` 구현을 Stage 1과 같은 수준으로 자체
+      재감사했다. 실제 결함 2건 발견·수정:
+      1. `S3FileStorageProvider.getSignedDownloadUrl()`이 완전히 구현돼 있었지만
+         앱 어디에서도 호출되지 않아 죽은 코드였음 — 운영(S3) 환경에서도 다운로드
+         API가 항상 파일 전체를 서버 메모리로 읽어 프록시하고 있었다(대용량 파일에
+         비효율적). 다운로드 라우트가 `getSignedDownloadUrl`을 지원하는 저장소에서는
+         60초 만료 서명 URL로 302 리다이렉트하고, 미지원(Local)에서는 기존대로
+         버퍼 프록시하도록 수정. 업로드 시 `ContentDisposition`을 S3 객체 메타데이터로
+         함께 저장해, 서명 URL로 직접 접속해도 원본 파일명이 유지되게 함
+         (`PutFileInput.contentDisposition` 필드 신설).
+      2. `S3FileStorageProvider`에 단위테스트가 전혀 없었음 — AWS SDK를 모킹해
+         put/get/delete/exists/getSignedDownloadUrl 8개 테스트 신설
+         (`S3FileStorageProvider.test.ts`), 라우트 레벨 리다이렉트 동작도 통합
+         테스트로 신설(`downloadSignedUrl.integration.test.ts`).
+      `docs/ARCHITECTURE.md`에 다운로드 흐름 설명 추가.
+      검증: lint/typecheck 클린, 단위 135(+8) + 통합 33(+1) passed, build 성공,
+      E2E 16 passed/1 skipped.
 
 ## 진행 중인 항목
 
@@ -103,30 +134,27 @@ Stage 1(종합 코드 감사) + Stage 2(실제 인증 재검증) 완료 → **St
 ## 마지막 커밋
 
 ```
-(다음 커밋 예정) fix: 마이그레이션이 searchVector를 삭제하던 BLOCKER 버그 복구
+(다음 커밋 예정) feat: Stage 4 완료 — 다운로드 서명 URL 리다이렉트 + S3 provider 테스트
+5da6360 fix: E2E가 GitHub Actions CI에서 항상 실패하던 원인 수정 (Chromium 경로 하드코딩)
+33b4949 docs: Stage 2(실제 인증) 재검증 완료 기록
+4453675 fix: 병합된 마이그레이션이 searchVector를 삭제하던 BLOCKER 버그 복구
 bfa8651 docs: Stage 1 종합 코드 감사 결과 + 완료체크리스트/실행상태 갱신
 7bdd8b4 fix: 사업유형/절차단계 필터가 일반 법령을 숨기는 결함 수정 + 절차단계 필터 신설
-0f2a560 docs: 장기 실행 상태관리 문서 3종 신설 (마스터플랜/실행상태/완료체크리스트)
-e337140 feat: 원본 파일 다운로드 API + 감사로그 조회 화면 추가 (Stage 3 공격 시나리오 보완)
-faccd0f fix: 병합 후 남은 타입체크 오류 수정 (env.test.ts, previewReadiness)
-8fd4971 (merge) claude/production-auth-storage-v1 → claude/jbot-v1-production-completion-v1
 ```
 
 브랜치는 `origin/claude/jbot-v1-production-completion-v1`에 푸시 완료.
-`docs/JBOT_V1_STAGE1_AUDIT.md`도 함께 존재(다음 커밋에 포함 예정 — 아직 미커밋 상태로
-남아있다면 반드시 커밋할 것).
+PR #4(`claude/jbot-v1-production-completion-v1` → `main`)가 열려 있음, GitHub
+Actions CI 두 잡 모두 success 확인됨. **자동 병합하지 않았음 — 사용자 확인 후
+수동 병합 필요.**
 
 ## 다음 액션 (새 세션이 이어받을 경우 그대로 실행)
 
-1. Stage 1(감사)과 Stage 2(실제 인증 재검증)는 모두 완료됨 — 각각
-   `docs/JBOT_V1_STAGE1_AUDIT.md`와 이 문서의 "완료된 항목"에서 근거 확인 가능.
-2. **Stage 3**은 이미 8/8 공격 시나리오 통과로 완료 처리됨(추가 조치 불필요).
-3. **Stage 4**(파일 저장소)는 지시서 §8 원문이 "interface FileStorageProvider {...}"
-   부분에서 잘려 전달되었다. **사용자가 이어지는 지시(§8 이후 원문)를 줘야만
-   다음 단계로 진행 가능** — 그 내용과 현재 이미 병합된
-   `FileStorageProvider`/`LocalFileStorageProvider`/`S3FileStorageProvider` 구현을
-   대조해 추가로 필요한 작업만 판단한다. 사용자 지시가 오기 전까지는 이 단계를
-   임의로 확장하지 않는다.
+1. Stage 1~4 모두 완료됨 — 근거는 각 섹션의 "완료된 항목"과
+   `docs/JBOT_V1_STAGE1_AUDIT.md` 참고.
+2. PR #4가 열려 있고 CI green 상태다. 사용자가 병합을 명시적으로 요청하면
+   병합하고(자동 병합 금지, 항상 명시적 요청 확인), 요청 전까지는 열어 둔다.
+3. 지시서 §8 이후(Stage 5+) 내용은 아직 수신하지 못했다 — 사용자가 이어지는
+   지시를 주면 그 내용에 따라 진행한다.
 4. 사용자가 실제 Neon/Vercel/S3 계정과 자격증명을 제공하면(마스터 플랜 §5
    BLOCKED_EXTERNAL), 문서·코드는 이미 준비되어 있으므로 바로 실배포 단계로
    진행할 수 있다.

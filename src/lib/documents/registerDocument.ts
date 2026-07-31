@@ -62,6 +62,7 @@ async function ingestUploadedFile(file: UploadedFileInput) {
     key: storageKey,
     buffer: file.buffer,
     contentType: file.mimeType,
+    contentDisposition: `attachment; filename="${encodeURIComponent(safeFilename)}"`,
   })
   const extraction = await extractText(file.buffer, file.filename)
 
