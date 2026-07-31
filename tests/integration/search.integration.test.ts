@@ -119,6 +119,66 @@ describe('hybridSearch 통합 테스트 (실제 PostgreSQL 연결)', () => {
     expect(results.some((r) => r.chunkId === chunk.id)).toBe(false)
   })
 
+  it('사업유형을 지정하지 않은(빈 배열) 일반 법령은 특정 사업유형으로 필터링해도 계속 검색된다', async () => {
+    const generalDoc = await createTestDocument({ title: '[TEST] 전체적용법', businessTypes: [] })
+    const reconstructionOnlyDoc = await createTestDocument({
+      title: '[TEST] 재건축전용법',
+      businessTypes: ['RECONSTRUCTION'],
+    })
+    const redevelopmentOnlyDoc = await createTestDocument({
+      title: '[TEST] 재개발전용법',
+      businessTypes: ['REDEVELOPMENT'],
+    })
+    createdDocIds.push(generalDoc.id, reconstructionOnlyDoc.id, redevelopmentOnlyDoc.id)
+
+    const generalVersion = await createTestVersion(generalDoc.id)
+    const reconstructionVersion = await createTestVersion(reconstructionOnlyDoc.id)
+    const redevelopmentVersion = await createTestVersion(redevelopmentOnlyDoc.id)
+    const generalChunk = await createTestChunk(generalVersion.id, { content: '사업유형필터고유문구 일반 내용' })
+    const reconstructionChunk = await createTestChunk(reconstructionVersion.id, { content: '사업유형필터고유문구 재건축 내용' })
+    const redevelopmentChunk = await createTestChunk(redevelopmentVersion.id, { content: '사업유형필터고유문구 재개발 내용' })
+
+    const results = await hybridSearch({
+      question: '사업유형필터고유문구',
+      region: null,
+      businessType: 'RECONSTRUCTION',
+    })
+
+    expect(results.some((r) => r.chunkId === generalChunk.id)).toBe(true)
+    expect(results.some((r) => r.chunkId === reconstructionChunk.id)).toBe(true)
+    expect(results.some((r) => r.chunkId === redevelopmentChunk.id)).toBe(false)
+  })
+
+  it('절차단계를 지정하지 않은(빈 배열) 일반 법령은 특정 절차단계로 필터링해도 계속 검색되고, 다른 단계 전용 문서는 제외된다', async () => {
+    const generalDoc = await createTestDocument({ title: '[TEST] 절차단계공통법', procedureStages: [] })
+    const contractorDoc = await createTestDocument({
+      title: '[TEST] 시공사선정전용법',
+      procedureStages: ['CONTRACTOR_SELECTION'],
+    })
+    const liquidationDoc = await createTestDocument({
+      title: '[TEST] 청산전용법',
+      procedureStages: ['LIQUIDATION'],
+    })
+    createdDocIds.push(generalDoc.id, contractorDoc.id, liquidationDoc.id)
+
+    const generalVersion = await createTestVersion(generalDoc.id)
+    const contractorVersion = await createTestVersion(contractorDoc.id)
+    const liquidationVersion = await createTestVersion(liquidationDoc.id)
+    const generalChunk = await createTestChunk(generalVersion.id, { content: '절차단계필터고유문구 공통 내용' })
+    const contractorChunk = await createTestChunk(contractorVersion.id, { content: '절차단계필터고유문구 시공사선정 내용' })
+    const liquidationChunk = await createTestChunk(liquidationVersion.id, { content: '절차단계필터고유문구 청산 내용' })
+
+    const results = await hybridSearch({
+      question: '절차단계필터고유문구',
+      region: null,
+      procedureStage: 'CONTRACTOR_SELECTION',
+    })
+
+    expect(results.some((r) => r.chunkId === generalChunk.id)).toBe(true)
+    expect(results.some((r) => r.chunkId === contractorChunk.id)).toBe(true)
+    expect(results.some((r) => r.chunkId === liquidationChunk.id)).toBe(false)
+  })
+
   it('includeInternalMemo가 false면 내부 검토자료는 검색 결과에서 제외된다 (일반 사용자 보호)', async () => {
     const doc = await createTestDocument({
       title: '[TEST] 내부검토자료',

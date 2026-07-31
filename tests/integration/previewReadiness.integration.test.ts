@@ -21,7 +21,7 @@ vi.mock('next/headers', () => ({
   }),
 }))
 
-const { createSessionCookieValue } = await import('@/lib/auth/session')
+const { createSession } = await import('@/lib/auth/session')
 const { prisma } = await import('@/lib/db')
 const { POST: postDocuments } = await import('@/app/api/documents/route')
 const { POST: postVersion } = await import('@/app/api/documents/[id]/versions/route')
@@ -44,7 +44,7 @@ describe('Preview 읽기 전용 모드 (PREVIEW_READ_ONLY_MODE=true)', () => {
       data: { email: `preview-admin-${Date.now()}@test.local`, name: '테스트 관리자', role: 'ADMIN' },
     })
     createdUserIds.push(admin.id)
-    mockCookieValue = createSessionCookieValue(admin.id)
+    mockCookieValue = (await createSession(admin.id)).token
 
     const request = new NextRequest('http://localhost/api/documents', { method: 'POST' })
     const response = await postDocuments(request)
@@ -60,7 +60,7 @@ describe('Preview 읽기 전용 모드 (PREVIEW_READ_ONLY_MODE=true)', () => {
       data: { email: `preview-admin2-${Date.now()}@test.local`, name: '테스트 관리자2', role: 'ADMIN' },
     })
     createdUserIds.push(admin.id)
-    mockCookieValue = createSessionCookieValue(admin.id)
+    mockCookieValue = (await createSession(admin.id)).token
 
     const request = new NextRequest('http://localhost/api/documents/some-id/versions', { method: 'POST' })
     const response = await postVersion(request, { params: Promise.resolve({ id: 'some-id' }) })

@@ -1,8 +1,10 @@
 import type { FeedbackReason } from '@prisma/client'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
+import { requiresPasswordChange } from '@/lib/auth/permissions'
 import { prisma } from '@/lib/db'
-import { toErrorResponse } from '@/lib/http/errorResponse'
+import { mustChangePasswordResponse, toErrorResponse } from '@/lib/http/errorResponse'
+import { assertCsrf } from '@/lib/security/csrf'
 
 const REASON_TO_RATING: Record<FeedbackReason, 'POSITIVE' | 'NEGATIVE'> = {
   HELPFUL: 'POSITIVE',
@@ -17,8 +19,10 @@ const REASON_TO_RATING: Record<FeedbackReason, 'POSITIVE' | 'NEGATIVE'> = {
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 })
+  if (requiresPasswordChange(user)) return mustChangePasswordResponse()
 
   try {
+    assertCsrf(request)
     const body = (await request.json()) as {
       chatMessageId: string
       reason: FeedbackReason

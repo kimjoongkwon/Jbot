@@ -1,4 +1,4 @@
-import type { BusinessType, DocumentType } from '@prisma/client'
+import type { BusinessType, DocumentType, ProcedureStage } from '@prisma/client'
 import { prisma } from '../db'
 import { searchByVector } from '../db/vector'
 import { createEmbeddingProvider } from '../embeddings'
@@ -12,6 +12,7 @@ export interface HybridSearchInput {
   question: string
   region?: string | null
   businessType?: BusinessType | null
+  procedureStage?: ProcedureStage | null
   documentType?: DocumentType | null
   referenceDate?: Date | null
   maxResults?: number
@@ -46,8 +47,18 @@ export async function hybridSearch(input: HybridSearchInput): Promise<HybridSear
   const documents = await prisma.legalDocument.findMany({
     where: {
       status: 'ACTIVE',
-      businessTypes: input.businessType ? { has: input.businessType } : undefined,
+      // 사업유형/절차단계를 특정 값으로 태그하지 않은 문서(빈 배열)는 모든
+      // 사업유형·절차단계에 공통 적용되는 일반 법령으로 취급해, 사용자가
+      // 특정 값을 선택해 필터링해도 계속 검색 대상에 남는다. 이 조건이
+      // 없으면(예: `{ has: value }`만 쓰면) 일반 법령이 사용자가 필터를
+      // 선택하는 순간 통째로 검색에서 사라지는 결함이 생긴다.
       AND: [
+        input.businessType
+          ? { OR: [{ businessTypes: { isEmpty: true } }, { businessTypes: { has: input.businessType } }] }
+          : {},
+        input.procedureStage
+          ? { OR: [{ procedureStages: { isEmpty: true } }, { procedureStages: { has: input.procedureStage } }] }
+          : {},
         input.documentType ? { documentType: input.documentType } : {},
         input.includeInternalMemo === false ? { documentType: { not: 'INTERNAL_MEMO' as const } } : {},
       ],

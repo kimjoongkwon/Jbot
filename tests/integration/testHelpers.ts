@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { BusinessType, ChunkType, DocumentStatus, DocumentType, JurisdictionType } from '@prisma/client'
+import type { BusinessType, ChunkType, DocumentStatus, DocumentType, JurisdictionType, ProcedureStage } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { buildSearchText } from '@/lib/search/tokenize'
 
@@ -10,6 +10,7 @@ export async function createTestDocument(overrides: {
   jurisdictionName?: string
   status?: DocumentStatus
   businessTypes?: BusinessType[]
+  procedureStages?: ProcedureStage[]
 } = {}) {
   return prisma.legalDocument.create({
     data: {
@@ -18,6 +19,7 @@ export async function createTestDocument(overrides: {
       jurisdictionType: overrides.jurisdictionType ?? 'NATIONAL',
       jurisdictionName: overrides.jurisdictionName ?? '전국',
       businessTypes: overrides.businessTypes ?? [],
+      procedureStages: overrides.procedureStages ?? [],
       status: overrides.status ?? 'ACTIVE',
     },
   })

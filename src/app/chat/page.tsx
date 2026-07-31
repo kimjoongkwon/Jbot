@@ -17,6 +17,7 @@ export default async function ChatPage() {
     return <DatabaseUnavailableNotice />
   }
   if (!user) redirect('/login')
+  if (user.mustChangePassword) redirect('/account/security')
 
   return <ChatPageClient userName={user.name} userRole={user.role} />
 }

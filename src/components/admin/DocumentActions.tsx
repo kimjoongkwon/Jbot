@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { csrfFetch } from '@/lib/security/csrfFetch'
 
 export function DocumentActions({ documentId, status }: { documentId: string; status: string }) {
   const router = useRouter()
@@ -12,7 +13,7 @@ export function DocumentActions({ documentId, status }: { documentId: string; st
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch(`/api/documents/${documentId}`, {
+      const res = await csrfFetch(`/api/documents/${documentId}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ status: next }),
@@ -30,7 +31,7 @@ export function DocumentActions({ documentId, status }: { documentId: string; st
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch(`/api/documents/${documentId}/reprocess`, { method: 'POST' })
+      const res = await csrfFetch(`/api/documents/${documentId}/reprocess`, { method: 'POST' })
       if (!res.ok) throw new Error()
       router.refresh()
     } catch {

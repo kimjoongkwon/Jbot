@@ -35,7 +35,7 @@
 업로드(admin/documents/new)
   → validateUploadFile (확장자/MIME/크기/파일명/경로조작/실행파일 검증)
   → computeContentHash → 중복 확인 (DocumentVersion.contentHash unique)
-  → saveUploadedFile (storage/uploads/에 원본 보존)
+  → FileStorageProvider.put (STORAGE_PROVIDER에 따라 로컬 디스크 또는 S3에 원본 보존)
   → extractText (txt/md 직접 읽기, pdf: pdf-parse, docx: mammoth)
       → 텍스트가 거의 없으면(스캔 문서) NO_TEXT_EXTRACTED로 중단, 추측 없음
   → LegalDocument + DocumentVersion 레코드 생성 (status: PROCESSING)
@@ -46,6 +46,22 @@
       → LegalChunk 테이블에 저장 (hierarchyPath, searchText 포함)
   → 성공 시 LegalDocument.status = ACTIVE, 실패 시 ERROR (원본·rawText는 보존)
 ```
+
+## 원본 파일 다운로드 (ADMIN/REVIEWER 전용)
+
+`GET /api/documents/:id/versions/:versionId/download`는 저장소 구현체가
+`getSignedDownloadUrl`을 제공하는지에 따라 동작이 갈린다:
+
+- **S3 등 서명 URL 지원 저장소**: 서버가 파일을 메모리로 읽지 않고, 60초 만료
+  서명 URL을 발급해 302로 리다이렉트한다. 클라이언트가 스토리지에서 직접
+  내려받으므로 대용량 파일에서도 서버 메모리·대역폭을 쓰지 않는다. 업로드
+  시점에 `PutObjectCommand`의 `ContentDisposition`을 원본 파일명으로 저장해
+  두므로, 서명 URL로 직접 접속해도 다운로드 파일명이 그대로 유지된다.
+- **Local 저장소**(서명 URL 미지원): 기존처럼 파일을 읽어 응답 본문으로 직접
+  스트리밍한다.
+
+두 경로 모두 INTERNAL_MEMO 접근 통제(`canViewInternalMemo`)와 감사로그
+기록(`DOCUMENT_FILE_DOWNLOAD`)은 리다이렉트/스트리밍 전에 동일하게 수행한다.
 
 재처리(`reprocessDocumentVersion`)는 기존 LegalChunk를 지우고 다시 생성하되, DocumentVersion
 자체(원본 파일, rawText)는 덮어쓰지 않는다. 새 버전 등록(`registerDocumentVersion`)은 기존

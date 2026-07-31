@@ -6,7 +6,9 @@ import {
   BUSINESS_TYPE_OPTIONS,
   DOCUMENT_TYPE_OPTIONS,
   JURISDICTION_TYPE_OPTIONS,
+  PROCEDURE_STAGE_OPTIONS,
 } from '@/lib/labels'
+import { csrfFetch } from '@/lib/security/csrfFetch'
 
 const HWP_MESSAGE =
   '현재 HWP 원본 파일의 직접 분석은 지원하지 않습니다. PDF, DOCX 또는 TXT로 변환하여 등록해 주세요.'
@@ -46,7 +48,7 @@ export function DocumentUploadForm({
     const url = legalDocumentId ? `/api/documents/${legalDocumentId}/versions` : '/api/documents'
 
     try {
-      const res = await fetch(url, { method: 'POST', body: formData })
+      const res = await csrfFetch(url, { method: 'POST', body: formData })
       const data = await res.json()
       if (!res.ok) {
         setError(data.error ?? '등록에 실패했습니다.')
@@ -102,11 +104,20 @@ export function DocumentUploadForm({
           <Field label="관할 지역" required>
             <input name="jurisdictionName" required placeholder="예: 전국, 서울특별시, 서울특별시 강남구" className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm" />
           </Field>
-          <Field label="사업 유형 (복수 선택 가능)">
+          <Field label="사업 유형 (복수 선택 가능, 미선택 시 전체 사업유형에 공통 적용)">
             <div className="grid grid-cols-2 gap-1 text-sm md:grid-cols-4">
               {BUSINESS_TYPE_OPTIONS.map((o) => (
                 <label key={o.value} className="flex items-center gap-1.5">
                   <input type="checkbox" name="businessTypes" value={o.value} /> {o.label}
+                </label>
+              ))}
+            </div>
+          </Field>
+          <Field label="관련 절차단계 (복수 선택 가능, 미선택 시 전체 절차단계에 공통 적용)">
+            <div className="grid grid-cols-2 gap-1 text-sm md:grid-cols-4">
+              {PROCEDURE_STAGE_OPTIONS.map((o) => (
+                <label key={o.value} className="flex items-center gap-1.5">
+                  <input type="checkbox" name="procedureStages" value={o.value} /> {o.label}
                 </label>
               ))}
             </div>

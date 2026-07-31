@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { LogoutButton } from '@/components/auth/LogoutButton'
 import { requireRole } from '@/lib/auth/session'
 import { getEnv, isPreviewReadOnlyMode } from '@/lib/env'
 import { DatabaseUnavailableNotice } from '@/components/shared/DatabaseUnavailableNotice'
@@ -24,6 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     return <DatabaseUnavailableNotice />
   }
   if (!user) redirect('/login')
+  if (user.mustChangePassword) redirect('/account/security')
 
   const readOnly = isPreviewReadOnlyMode(getEnv())
 
@@ -46,16 +48,31 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               {item.label}
             </a>
           ))}
+          {user.role === 'ADMIN' && (
+            <a
+              href="/admin/users"
+              className="whitespace-nowrap rounded-md px-3 py-2 text-sm text-navy-50 hover:bg-navy-800"
+            >
+              사용자 관리
+            </a>
+          )}
+          {user.role === 'ADMIN' && (
+            <a
+              href="/admin/audit-log"
+              className="whitespace-nowrap rounded-md px-3 py-2 text-sm text-navy-50 hover:bg-navy-800"
+            >
+              감사 로그
+            </a>
+          )}
         </nav>
         <div className="mt-auto flex flex-col gap-2 pt-4 text-xs">
           <a href="/chat" className="text-navy-100 hover:underline">
             챗봇 화면으로
           </a>
-          <form action="/api/auth/logout" method="POST">
-            <button type="submit" className="text-navy-100 hover:underline">
-              로그아웃
-            </button>
-          </form>
+          <a href="/account/security" className="text-navy-100 hover:underline">
+            비밀번호 변경
+          </a>
+          <LogoutButton className="text-left text-navy-100 hover:underline" />
         </div>
       </aside>
       <main className="flex-1 bg-slate-50 p-4 md:p-6">

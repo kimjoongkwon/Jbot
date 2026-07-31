@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { csrfFetch } from '@/lib/security/csrfFetch'
 import { FEEDBACK_REASON_OPTIONS } from './types'
 
 export function FeedbackBar({ chatMessageId }: { chatMessageId: string }) {
@@ -12,7 +13,7 @@ export function FeedbackBar({ chatMessageId }: { chatMessageId: string }) {
   async function submit(reason: string, commentValue?: string) {
     setError(null)
     try {
-      const res = await fetch('/api/feedback', {
+      const res = await csrfFetch('/api/feedback', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ chatMessageId, reason, comment: commentValue }),

@@ -25,10 +25,20 @@ const SAMPLE_TEXT = [
   `(테스트 실행 시각: ${Date.now()})`,
 ].join('\n')
 
+// prisma/seed.ts가 시딩하는 개발 전용 고정 비밀번호와 동일하다 (로컬/CI 전용).
+const DEV_SEED_PASSWORD = 'DevSeed!2026Pw'
+const CREDENTIALS_BY_ROLE = {
+  ADMIN: { email: 'admin@example.com', password: DEV_SEED_PASSWORD },
+  REVIEWER: { email: 'reviewer@example.com', password: DEV_SEED_PASSWORD },
+  USER: { email: 'user@example.com', password: DEV_SEED_PASSWORD },
+} as const
+
 async function loginAs(page: import('@playwright/test').Page, roleLabel: 'ADMIN' | 'REVIEWER' | 'USER') {
+  const { email, password } = CREDENTIALS_BY_ROLE[roleLabel]
   await page.goto('/login')
-  const targetForm = page.locator('form', { has: page.getByText(roleLabel, { exact: true }) })
-  await Promise.all([page.waitForURL(/\/chat|\/admin/), targetForm.locator('button[type=submit]').click()])
+  await page.fill('#email', email)
+  await page.fill('#password', password)
+  await Promise.all([page.waitForURL(/\/chat|\/admin/), page.click('button[type=submit]')])
 }
 
 test.describe('정비사업 법령 AI 챗봇 E2E', () => {
